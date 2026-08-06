@@ -3684,9 +3684,12 @@ if(mapEl){
       if(r.hab) PREF[r.id] = r.hab;
       if(r.av_url)  s.avURL   = r.av_url;
       if(r.img_url) s.heroURL = r.img_url;
-      /* ชนิดที่ยังไม่มีรูป ใช้ภาพแทนชั่วคราว จะได้ไม่ขึ้นรูปแตก */
-      if(!s.avURL)   s.avURL   = NOPHOTO;
-      if(!s.heroURL) s.heroURL = NOPHOTO;
+      /* ใช้ภาพแทนเฉพาะชนิดที่มาจากคลาวด์และยังไม่มีรูปเท่านั้น
+         ห้ามแตะชนิดเดิมที่ใช้ไฟล์ใน assets/birds — ไม่งั้นรูปจริงจะหายหมด */
+      if(s.custom){
+        if(!s.avURL)   s.avURL   = NOPHOTO;
+        if(!s.heroURL) s.heroURL = NOPHOTO;
+      }
     });
     si.forEach(r=>{
       if(!SPECIES.some(x=>x.id===r.species_id)) return;
