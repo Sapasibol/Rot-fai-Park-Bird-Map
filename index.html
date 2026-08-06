@@ -866,7 +866,9 @@ body.svgfb .rail-h.gl-only{display:none}
 
       <div class="frow">
         <div class="fld"><label>ชนิดนก *</label>
-          <select id="aSpecies"></select></div>
+          <select id="aSpecies"></select>
+          <small id="aSpNote" style="display:block;margin-top:5px;font-weight:200;
+            font-size:10px;color:rgba(255,255,255,.45)"></small></div>
         <div class="fld"><label>จำนวนที่เห็น</label>
           <input id="aCount" type="number" min="1" value="1"></div>
         <div class="fld"><label>วันที่พบ</label>
@@ -2696,6 +2698,64 @@ if(mapEl){
     console.info('eBird loaded', EB_STATS);
   }
 
+  /* ==========================================================
+     รายชื่อนก "ทั้งหมด" ที่เคยมีรายงานในสวนรถไฟ จาก eBird
+     ----------------------------------------------------------
+     /product/spplist  → รหัสชนิดทั้งหมดของ hotspot นี้
+     /ref/taxonomy     → ชื่อไทย + ชื่ออังกฤษ + ชื่อวิทยาศาสตร์
+     เก็บไว้ในเบราว์เซอร์ 7 วัน เพื่อไม่ให้ยิงซ้ำทุกครั้งที่เปิด
+     ========================================================== */
+  const SPL_KEY = 'eb:splist:v1:' + EBIRD.loc;
+  let SPL_CACHE = null;
+
+  async function parkSpeciesList(force){
+    if(SPL_CACHE && !force) return SPL_CACHE;
+    if(!force){
+      try{
+        const c = JSON.parse(localStorage.getItem(SPL_KEY) || 'null');
+        if(c && c.list && c.list.length && Date.now() - c.t < 7*864e5)
+          return (SPL_CACHE = c.list);
+      }catch(e){}
+    }
+
+    const r = await fetch(
+      `https://api.ebird.org/v2/product/spplist/${EBIRD.loc}?key=${EBIRD.key}`);
+    if(!r.ok) throw new Error('spplist ' + r.status);
+    const codes = await r.json();
+    if(!Array.isArray(codes) || !codes.length) throw new Error('spplist ว่าง');
+
+    /* ขอชื่อทีละก้อน ไม่ให้ URL ยาวเกิน */
+    const chunk = (a,n)=>{ const o=[]; for(let i=0;i<a.length;i+=n) o.push(a.slice(i,i+n)); return o; };
+    const groups = chunk(codes, 100);
+    const grab = async loc =>{
+      const out = {};
+      for(const g of groups){
+        try{
+          const t = await fetch('https://api.ebird.org/v2/ref/taxonomy/ebird'+
+            `?fmt=json&locale=${loc}&species=${g.join(',')}&key=${EBIRD.key}`);
+          if(!t.ok) continue;
+          (await t.json()).forEach(o=>{ out[o.speciesCode] = o; });
+        }catch(e){}
+      }
+      return out;
+    };
+    const th = await grab('th');
+    const en = await grab('en');
+
+    const list = codes.map(c=>{
+      const a = th[c] || {}, b = en[c] || {};
+      const thName = a.comName || b.comName || c;
+      const enName = b.comName || '';
+      return {code:c, th:thName, en:(enName === thName ? '' : enName),
+              sci:(a.sciName || b.sciName || '')};
+    }).filter(s=> s.th)
+      .sort((a,b)=> a.th.localeCompare(b.th, 'th'));
+
+    try{ localStorage.setItem(SPL_KEY, JSON.stringify({t:Date.now(), list})); }catch(e){}
+    console.info('รายชื่อนกในสวนจาก eBird —', list.length, 'ชนิด');
+    return (SPL_CACHE = list);
+  }
+
   function countCachedDays(){
     let n = 0;
     try{ for(let i=0;i<localStorage.length;i++)
@@ -2887,6 +2947,7 @@ if(mapEl){
     parkPoly: ()=> PARK.poly,
     runEbird: ()=> loadEbird().catch(e=> console.warn('eBird', e && e.message)),
     ebStats:  ()=> EB_STATS,
+    parkSpeciesList,
     /* วาดรายชื่อนกและการ์ดใหม่ หลังเปลี่ยนรูป */
     refreshArt(){
       $$('#spGrid .sp').forEach(b=>{
@@ -3566,6 +3627,16 @@ if(mapEl){
     return `${C.url.replace(/\/+$/,'')}/storage/v1/object/public/bird-photos/${path}`;
   }
 
+  /* ภาพแทนสำหรับชนิดที่ยังไม่มีรูปถ่าย — เงาปีกนกบนพื้นเขียวเข้ม */
+  const NOPHOTO = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">`+
+    `<rect width="120" height="120" fill="#16241a"/>`+
+    `<g fill="#4CA555" opacity=".6" transform="translate(60 62) scale(1.5)">`+
+    `<path d="M0,2 C-7,-3 -17,-12 -29,-11 C-19,-3 -9,1 0,3Z"/>`+
+    `<path d="M0,2 C7,-3 17,-12 29,-11 C19,-3 9,1 0,3Z"/>`+
+    `<path d="M-6,2 C-3,-1 3,-1 7,1 C9,1.6 10,2.4 11,3.2 C8,4 3,4.4 -2,4 C-5,3.8 -6,3 -6,2Z"/>`+
+    `</g></svg>`);
+
   /* ---------- ดึงข้อมูลลงมา ---------- */
   async function pull(quiet){
     if(!ready()) return false;
@@ -3585,6 +3656,9 @@ if(mapEl){
       if(r.hab) PREF[r.id] = r.hab;
       if(r.av_url)  s.avURL   = r.av_url;
       if(r.img_url) s.heroURL = r.img_url;
+      /* ชนิดที่ยังไม่มีรูป ใช้ภาพแทนชั่วคราว จะได้ไม่ขึ้นรูปแตก */
+      if(!s.avURL)   s.avURL   = NOPHOTO;
+      if(!s.heroURL) s.heroURL = NOPHOTO;
     });
     si.forEach(r=>{
       if(!SPECIES.some(x=>x.id===r.species_id)) return;
@@ -3673,9 +3747,44 @@ if(mapEl){
     $('#btnAdd').hidden = !(ready() && C.allowAdd !== false);
     $('#aPassWrap').hidden = !C.pass;
   }
-  function fillSpecies(){
-    $('#aSpecies').innerHTML = SPECIES.slice().sort((a,b)=>a.th.localeCompare(b.th,'th'))
-      .map(s=>`<option value="${s.id}">${s.th} · ${s.en}</option>`).join('');
+  const esc = s => String(s||'').replace(/[<>&"]/g, c=>
+    ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+
+  /* กลุ่มที่ 1 = ชนิดที่มีในเว็บอยู่แล้ว (มีรูป มีข้อมูล)
+     กลุ่มที่ 2 = ชนิดอื่นทั้งหมดที่เคยมีรายงานในสวนรถไฟ ดึงสดจาก eBird */
+  let SPL = null;
+  function renderSpecies(){
+    const sel = $('#aSpecies');
+    const mine = SPECIES.slice().sort((a,b)=> a.th.localeCompare(b.th,'th'))
+      .map(s=>`<option value="${esc(s.id)}">${esc(s.th)}${s.en?' · '+esc(s.en):''}</option>`).join('');
+    let html = `<optgroup label="ชนิดที่มีข้อมูลในเว็บ">${mine}</optgroup>`;
+
+    if(SPL && SPL.length){
+      const have = new Set(SPECIES.map(s=> s.th));
+      const rest = SPL.filter(s=> !have.has(s.th));
+      if(rest.length) html += `<optgroup label="เคยพบในสวนรถไฟ · จาก eBird (${rest.length} ชนิด)">` +
+        rest.map(s=>`<option value="eb:${esc(s.code)}" data-th="${esc(s.th)}" `+
+          `data-en="${esc(s.en)}" data-sci="${esc(s.sci)}">${esc(s.th)}`+
+          `${s.en?' · '+esc(s.en):''}</option>`).join('') + '</optgroup>';
+    }
+    sel.innerHTML = html;
+  }
+
+  async function fillSpecies(){
+    renderSpecies();
+    const note = $('#aSpNote');
+    if(!G.parkSpeciesList) return;
+    if(SPL){ if(note) note.textContent = `รายชื่อ ${SPL.length} ชนิดจาก eBird`; return; }
+    if(note) note.textContent = 'กำลังดึงรายชื่อนกทั้งหมดของสวนรถไฟจาก eBird…';
+    try{
+      SPL = await G.parkSpeciesList();
+      renderSpecies();
+      if(note) note.textContent =
+        `รวมนกที่เคยมีรายงานในสวนรถไฟทั้งหมด ${SPL.length} ชนิด (ที่มา eBird)`;
+    }catch(e){
+      if(note) note.textContent = 'ดึงรายชื่อจาก eBird ไม่สำเร็จ — แสดงเฉพาะชนิดที่มีในเว็บ';
+      console.warn('spplist', e && e.message);
+    }
   }
   $('#btnAdd').addEventListener('click', ()=>{
     fillSpecies(); syncFab();
@@ -3744,8 +3853,22 @@ if(mapEl){
       let photo = null;
       const f = $('#aPhoto').files[0];
       if(f) photo = await upload(`obs/${Date.now()}-${f.name.replace(/[^\w.-]/g,'')}`, f);
+
+      /* ถ้าเลือกชนิดที่มาจากรายชื่อ eBird และยังไม่มีในฐานข้อมูล ให้สร้างแถวชนิดก่อน */
+      let sid = $('#aSpecies').value;
+      if(sid.startsWith('eb:')){
+        const opt = $('#aSpecies').selectedOptions[0];
+        sid = 'eb-' + sid.slice(3);
+        await ins('species', [{
+          id: sid, th: opt.dataset.th || opt.textContent.split(' · ')[0],
+          en: opt.dataset.en || '', sci: opt.dataset.sci || '',
+          g: 'insect', z: [], f: 1,
+          where_txt: 'เพิ่มโดยผู้เข้าชม · รายชื่อจาก eBird'
+        }]);
+      }
+
       await ins('sightings', [{
-        species_id: $('#aSpecies').value, lat, lon,
+        species_id: sid, lat, lon,
         n: Math.max(1, +$('#aCount').value||1),
         observed_at: $('#aDate').value || null,
         note: $('#aNote').value.trim() || null,
