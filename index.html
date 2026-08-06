@@ -1055,7 +1055,7 @@ body.svgfb .rail-h.gl-only{display:none}
       <div class="tabpane" id="paneFilters">
       <p class="rail-h" style="margin-top:0">แหล่งข้อมูลจำนวนนก</p>
       <div class="seg" id="srcSeg">
-        <button data-src="range" class="on">1 ม.ค. – 5 ส.ค.</button>
+        <button data-src="range" class="on" id="srcRange">1 ม.ค. – วันนี้</button>
         <button data-src="ours">3 วันของเรา</button>
       </div>
 
@@ -2890,6 +2890,8 @@ if(mapEl){
   }
   bootData();
 
+  { const sr = $('#srcRange');
+    if(sr) sr.textContent = '1 ม.ค. – ' + thaiToday().replace(/ \d{4}$/, ''); }
   $$('#srcSeg button').forEach(b=> b.addEventListener('click', ()=>{
     $$('#srcSeg button').forEach(x=> x.classList.remove('on'));
     b.classList.add('on'); state.src = b.dataset.src; runEbird();
@@ -3730,13 +3732,24 @@ if(mapEl){
         }
       }
       if(imgOk || imgFail) clog(`  สรุปรูป — สำเร็จ ${imgOk} · ข้าม ${imgFail}`);
-      /* 2. ชนิด */
-      const rows = SPECIES.map(sp=>({
-        id:sp.id, th:sp.th, en:sp.en, sci:sp.sci, g:sp.g, z:sp.z, f:sp.f,
-        beh:sp.beh, where_txt:sp.where, hab:PREF[sp.id]||null,
-        av_url:(urls[sp.id]||{}).avURL || null,
-        img_url:(urls[sp.id]||{}).heroURL || null
-      }));
+      else clog('  ไม่พบรูปที่จัดเฟรมไว้ในเบราว์เซอร์นี้ — จะอัปเฉพาะข้อมูลตัวอักษร\n'+
+                '  (รูปที่จัดไว้ผูกกับเบราว์เซอร์ที่จัด ต้องกดอัปโหลดจากเครื่องนั้น)');
+      /* 2. ชนิด — ถ้ารอบนี้ไม่มีรูปใหม่ ต้องเก็บลิงก์รูปเดิมบนคลาวด์ไว้
+         ไม่งั้นการกดอัปโหลดจากเครื่องที่ไม่มีรูป จะไปล้างรูปที่เคยขึ้นไปแล้ว */
+      let cloudSp = [];
+      try{ cloudSp = await sel('species'); }catch(e){}
+      const old = {};
+      cloudSp.forEach(r=>{ old[r.id] = r; });
+
+      const rows = SPECIES.map(sp=>{
+        const o = old[sp.id] || {};
+        return {
+          id:sp.id, th:sp.th, en:sp.en, sci:sp.sci, g:sp.g, z:sp.z, f:sp.f,
+          beh:sp.beh, where_txt:sp.where, hab:PREF[sp.id]||null,
+          av_url:(urls[sp.id]||{}).avURL  || o.av_url  || null,
+          img_url:(urls[sp.id]||{}).heroURL || o.img_url || null
+        };
+      });
       await ins('species', rows);
       clog(`  ชนิดนก ${rows.length} รายการ`);
       /* 3. จุดพบ */
