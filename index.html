@@ -730,7 +730,7 @@ body.svgfb .rail-h.gl-only{display:none}
       <div class="spane" id="paneData">
         <div class="form">
           <h3>ข้อมูลจาก eBird</h3>
-          <p class="d">hotspot <b>Rot Fai Park (L990195)</b> · ช่วง <b>1 ม.ค. – 5 ส.ค. 2569</b><br>
+          <p class="d">hotspot <b>Rot Fai Park (L990195)</b> · ช่วง <b>1 ม.ค. – <span id="dRange">วันนี้</span></b><br>
             ดึงทีละวันแล้วเก็บไว้ในเบราว์เซอร์ กดอัปเดตเมื่อไหร่ก็ได้ ระบบจะดึงเฉพาะวันที่ยังไม่มี</p>
 
           <div class="eb-grid">
@@ -741,8 +741,8 @@ body.svgfb .rail-h.gl-only{display:none}
           </div>
 
           <p class="d" style="color:#BFE8C4;margin-bottom:12px">
-            เว็บจะไม่ดึง eBird อัตโนมัติตอนเปิด เพราะ 217 คำขอจะแย่งแบนด์วิดท์กับแผนที่จนแลค
-            — กดปุ่มข้างล่างเมื่อต้องการอัปเดต แล้วอย่าลืมส่งออก data.json ไปวางคู่กับเว็บ</p>
+            เว็บจะโหลด eBird เองอัตโนมัติหลังแผนที่ขึ้นแล้ว และเติมวันใหม่ให้ทุกครั้งที่เปิด
+            — ถ้าอยากให้ผู้ชมโหลดเร็วขึ้นมาก ให้กดอัปเดตที่นี่ แล้วส่งออก data.json ไปวางคู่กับ index.html</p>
           <button class="sbtn pri" id="dRefresh">โหลด / อัปเดตข้อมูล eBird</button>
           <button class="sbtn" id="dForce">ดึงใหม่ทั้งหมด (ล้าง cache)</button>
           <button class="sbtn" id="dExport">ส่งออก CSV</button>
@@ -1496,7 +1496,7 @@ if(mapEl){
   const state = {
     zone:'ALL',
     species:null,
-    src:'range',        /* 'ours' = 3 วันของเรา · 'range' = 1 ม.ค. – 5 ส.ค. */
+    src:'range',        /* 'ours' = 3 วันของเรา · 'range' = 1 ม.ค. – วันนี้ */
     groups:new Set(Object.keys(GROUPS)),
     time:'dawn', season:'wet',
     layers:{heat:true, gps:true, spots:true, zones:true, park:true, canopy:true, bld:true, labels:true, water:true},
@@ -1879,7 +1879,7 @@ if(mapEl){
         .join('');
       $('#spFreqN').textContent = sp.f;
       $('#spPeriod').textContent = state.src === 'ours'
-        ? '26, 29 ก.ค. · 4 ส.ค. 2569' : '1 ม.ค. – 5 ส.ค. 2569';
+        ? '26, 29 ก.ค. · 4 ส.ค. 2569' : ('1 ม.ค. – ' + thaiToday());
       $('#spEbStat').innerHTML =
         (sp.days   != null ? `<span>เจอ <b>${sp.days}</b> วัน</span>` : '') +
         (sp.freq   != null ? `<span>ความถี่ <b>${Math.round(sp.freq*100)}%</b></span>` : '') +
@@ -2552,6 +2552,13 @@ if(mapEl){
     conc:3, cacheV:'v1'
   };
   const ymd = a => `${a[0]}-${String(a[1]).padStart(2,'0')}-${String(a[2]).padStart(2,'0')}`;
+  /* วันที่วันนี้แบบไทย เช่น "6 ส.ค. 2569" — ใช้กับข้อความช่วงข้อมูลทุกที่ */
+  const TH_MON = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.',
+                  'ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  function thaiToday(){
+    const d = new Date();
+    return `${d.getDate()} ${TH_MON[d.getMonth()]} ${d.getFullYear()+543}`;
+  }
   const daysBetween = (from, to)=>{
     const out = [], a = new Date(from+'T00:00:00Z'), b = new Date(to+'T00:00:00Z');
     for(let d=new Date(a); d<=b; d.setUTCDate(d.getUTCDate()+1))
@@ -2680,7 +2687,7 @@ if(mapEl){
     if(badge){
       badge.textContent = state.src === 'ours'
         ? `eBird · ${hit} ชนิด · ${dataDays}/${days.length} วันสำรวจของเรา`
-        : `eBird · ${hit} ชนิด · มีข้อมูล ${dataDays} วัน จาก ${days.length} วัน (1 ม.ค. – 5 ส.ค. 69)`;
+        : `eBird · ${hit} ชนิด · มีข้อมูล ${dataDays} วัน จาก ${days.length} วัน (1 ม.ค. – ${thaiToday()})`;
       badge.classList.add('live');
     }
     console.info('eBird loaded', EB_STATS);
@@ -2753,12 +2760,17 @@ if(mapEl){
   }
   let EB_BASE_DAYS = 0;
 
-  function runEbird(){
+  function runEbird(retry){
     const b = $('#ebBadge');
     if(b){ b.classList.remove('live'); b.textContent = 'กำลังดึงข้อมูลจาก eBird…'; }
     loadEbird().catch(err=>{
-      if(b) b.textContent = 'ตัวเลขประมาณการ — ยังต่อ eBird ไม่ได้';
       console.warn('eBird:', err && err.message);
+      /* เน็ตสะดุดตอนแรกเป็นเรื่องปกติ — ลองใหม่เงียบ ๆ อีกครั้งก่อนยอมแพ้ */
+      if(!retry){
+        if(b) b.textContent = 'เชื่อมต่อ eBird ไม่สำเร็จ — กำลังลองใหม่…';
+        return setTimeout(()=> runEbird(true), 8000);
+      }
+      if(b) b.textContent = 'ตัวเลขประมาณการ — ยังต่อ eBird ไม่ได้';
     });
   }
 
@@ -2776,13 +2788,12 @@ if(mapEl){
     if(!d || !Array.isArray(d.species)){
       const cached = countCachedDays();
       const b = $('#ebBadge');
-      if(cached > 20){
-        /* เคยดึงไว้แล้ว อ่านจาก cache ได้เร็ว ไม่กินเน็ต */
-        if(b) b.textContent = `กำลังอ่าน eBird จากที่เก็บไว้ (${cached} วัน)…`;
-        waitForMap(()=> runEbird());
-      } else if(b){
-        b.textContent = 'ยังไม่ได้โหลดข้อมูล eBird — กดที่ ⚙ แท็บข้อมูล eBird';
-      }
+      /* ไม่มี data.json — โหลดเองอัตโนมัติ แต่รอให้แผนที่ขึ้นก่อนเสมอ
+         รอบแรกของผู้ชมแต่ละคนจะใช้เวลาสักครู่ รอบถัดไปอ่านจาก cache แล้วเติมเฉพาะวันใหม่ */
+      if(b) b.textContent = cached > 20
+        ? `กำลังอ่าน eBird จากที่เก็บไว้ (${cached} วัน)…`
+        : 'กำลังเตรียมข้อมูล eBird — แผนที่ใช้งานได้เลยระหว่างรอ';
+      waitForMap(()=> runEbird());
       return;
     }
 
@@ -3365,6 +3376,10 @@ if(mapEl){
     let n=0; for(let i=0;i<localStorage.length;i++)
       if((localStorage.key(i)||'').startsWith('eb:')) n++;
     $('#dCache').textContent = n;
+    const dr = $('#dRange');
+    if(dr){ const t=new Date(), M=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.',
+        'ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+      dr.textContent = `${t.getDate()} ${M[t.getMonth()]} ${t.getFullYear()+543}`; }
     const rows = SPECIES.filter(s=>s.days!=null)
       .sort((a,b)=>b.f-a.f)
       .map(s=>`${String(s.f).padStart(5)}  ${String(s.days||0).padStart(3)} วัน  `+
