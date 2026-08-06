@@ -3591,10 +3591,24 @@ if(mapEl){
   const {SPECIES, PREF, GPS_SIGHTINGS} = G;
 
   /* ---- ตั้งค่า: ฝังไว้ในไฟล์ได้เลย หรือกรอกผ่านแผงคลาวด์ ---- */
-  const BAKED = { url:'', key:'', pass:'', allowAdd:true };   /* ← แก้ตรงนี้ตอนเผยแพร่ก็ได้ */
+  const BAKED = {
+    url:'https://fmaekeoreroshdufjspk.supabase.co',
+    key:'sb_publishable_Mg5Po22Yp7Ri-S9ze5-SiA_iXHBPByj',
+    pass:'', allowAdd:true
+  };
   const LSK = 'bm.cloud';
-  const load = ()=>{ try{ return Object.assign({}, BAKED, JSON.parse(localStorage.getItem(LSK)||'{}')); }
-                     catch(e){ return Object.assign({}, BAKED); } };
+  /* ค่าที่ผู้ใช้กรอกเองมาก่อน แต่ถ้าเป็นค่าว่างให้ใช้ค่าที่ฝังไว้ในไฟล์แทน
+     กันเครื่องที่เคยเซฟค่าว่างไว้มาลบค่าที่ฝังมาให้                     */
+  const load = ()=>{
+    const o = Object.assign({}, BAKED);
+    try{
+      const s = JSON.parse(localStorage.getItem(LSK) || '{}');
+      Object.keys(s).forEach(k=>{
+        if(s[k] !== '' && s[k] != null) o[k] = s[k];
+      });
+    }catch(e){}
+    return o;
+  };
   let C = load();
   const save = ()=> localStorage.setItem(LSK, JSON.stringify(C));
   const ready = ()=> !!(C.url && C.key);
