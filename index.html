@@ -1,0 +1,3752 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5">
+<meta name="theme-color" content="#070d09">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="แผนที่ความหนาแน่นนกในสวนวชิรเบญจทัศ (สวนรถไฟ) — 26 ชนิด พร้อมภาพถ่ายจริงและข้อมูลจาก eBird">
+<title>Rot Fai Park Bird Map — แผนที่นกสวนรถไฟ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Mitr:wght@200;300;400;500;600&family=Kanit:wght@200;300;400;500&family=Poppins:wght@200;300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ==========================================================================
+   ROT FAI PARK BIRD MAP — แผนที่ความหนาแน่นนก สวนวชิรเบญจทัศ
+   เว็บแผนที่อย่างเดียว · HTML / CSS / JS ล้วน
+   ========================================================================== */
+:root{
+  --olive:#4C662F; --olive-lt:#5E7C3B;
+  --green:#4CA555; --green-lt:#6FC077; --green-glow:rgba(76,165,85,.45);
+  --ink:#070d09; --nav-h:58px;
+  --ease:cubic-bezier(.22,.9,.28,1);
+}
+@property --health{syntax:'<number>';initial-value:72;inherits:false}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{font-family:'Kanit',system-ui,sans-serif;background:var(--ink);color:#fff;
+  overflow:hidden;-webkit-font-smoothing:antialiased}
+::selection{background:var(--green);color:#fff}
+
+/* ---------- top bar ---------- */
+.topbar{position:fixed;top:0;left:0;right:0;height:var(--nav-h);z-index:60;
+  display:flex;align-items:center;gap:14px;padding:0 clamp(14px,1.8vw,28px);
+  background:linear-gradient(180deg,rgba(5,11,7,.92),rgba(5,11,7,.55) 70%,transparent);
+  pointer-events:none}
+.brand{display:flex;align-items:center;gap:11px;pointer-events:auto}
+.brand .mk{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
+  background:var(--green);flex:none}
+.brand .mk svg{width:18px;height:18px}
+.brand h1{font-family:'Poppins';font-weight:500;font-size:14px;letter-spacing:.02em;line-height:1.15}
+.brand span{display:block;font-family:'Kanit';font-weight:200;font-size:10.5px;
+  color:rgba(255,255,255,.5);letter-spacing:.01em}
+.topbar .spacer{flex:1}
+.tstat{pointer-events:auto;display:flex;gap:16px;align-items:center;
+  font-weight:200;font-size:11px;color:rgba(255,255,255,.6)}
+.tstat b{font-family:'Poppins';font-weight:600;font-size:15px;color:#fff;margin-right:4px}
+@media (max-width:900px){.topbar{position:relative;background:rgba(5,11,7,.95)}
+  .tstat{display:none}}
+
+/* ---------- shell ---------- */
+#map{position:fixed;inset:0;background:var(--ink)}
+.map-shell{position:absolute;inset:0}
+/* ==========================================================================
+   07 · HOTSPOT MAP — Google-Maps-like 3D park map with a bird-density heatmap
+   ========================================================================== */
+#map{background:#070d09}
+#map .bg::after{background:linear-gradient(180deg,rgba(5,11,7,.92),rgba(5,11,7,.86))}
+.map-shell{position:absolute;inset:0;z-index:5;display:block}
+
+/* --- the 3D stage --- */
+.map-viewport{
+  position:absolute;inset:0;
+  perspective:1500px;perspective-origin:50% 52%;
+  cursor:grab;touch-action:none;overflow:hidden;
+}
+.map-viewport.grabbing{cursor:grabbing}
+#glmap{position:absolute;inset:0;display:none}
+/* the CSS perspective used by the fallback stage breaks WebGL compositing */
+body.gl .map-viewport{perspective:none}
+.stage-svg{position:absolute;inset:0}
+body.gl #glmap{display:block}
+body.gl .stage-svg{display:none}
+body.gl .map-viewport{cursor:default}
+.map-boot{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5;
+  font-weight:200;font-size:12px;letter-spacing:.06em;color:rgba(255,255,255,.6);
+  padding:10px 20px;border-radius:999px;background:rgba(8,16,10,.7);
+  border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(10px)}
+.map-boot.gone{display:none}
+/* controls that only make sense on the real basemap */
+body.svgfb #styleSeg,
+body.svgfb #layerChips [data-layer="bld"],
+body.svgfb #layerChips [data-layer="labels"],
+body.svgfb #layerChips [data-layer="zones"]{display:none}
+body.svgfb .rail-h.gl-only{display:none}
+/* MapLibre chrome restyled to match the site */
+.maplibregl-ctrl-attrib{background:rgba(8,16,10,.72)!important;border-radius:8px 0 0 0;
+  font-family:'Kanit';font-weight:200;font-size:9.5px}
+.maplibregl-ctrl-attrib a{color:rgba(255,255,255,.62)!important}
+.maplibregl-canvas{outline:none}
+.gl-pin{cursor:pointer}
+.gl-pin .head{display:flex;align-items:center;gap:7px;white-space:nowrap;
+  padding:6px 12px;border-radius:999px;background:rgba(8,16,10,.9);
+  border:1px solid rgba(255,255,255,.45);backdrop-filter:blur(8px);
+  font-family:'Kanit';font-weight:300;font-size:12px;color:#fff;
+  transition:background .35s var(--ease),transform .35s var(--ease),border-color .35s}
+.gl-pin .head b{font-family:'Poppins';font-weight:500;color:#BFE8C4;font-size:11px}
+.gl-pin:hover .head{background:var(--green);border-color:#fff;transform:scale(1.07)}
+.gl-pin.hot .head{border-color:#F2B84B;box-shadow:0 0 20px rgba(242,184,75,.45)}
+.map-world{
+  position:absolute;left:50%;top:50%;width:1000px;height:1000px;margin:-500px 0 0 -500px;
+  transform-style:preserve-3d;will-change:transform;
+}
+.mlayer{position:absolute;inset:0;transform-style:preserve-3d;pointer-events:none}
+.mlayer svg,.mlayer canvas{position:absolute;inset:0;width:1000px;height:1000px;display:block}
+.l-ground{transform:translateZ(0px)}
+.l-water {transform:translateZ(2px)}
+.l-paths {transform:translateZ(4px)}
+.l-zones  {transform:translateZ(6px);pointer-events:auto}
+.l-heat   {transform:translateZ(9px);mix-blend-mode:screen}
+.l-canopy {transform:translateZ(26px)}
+.l-marks  {transform:translateZ(40px);pointer-events:auto}
+.l-labels {transform:translateZ(58px)}
+
+/* ground plate with a subtle drop so the tilt reads as depth */
+.plate{filter:drop-shadow(0 26px 34px rgba(0,0,0,.6))}
+
+/* zone polygons */
+.zpoly{fill:var(--zc);fill-opacity:.16;stroke:var(--zc);stroke-width:2.5;
+  stroke-dasharray:9 7;cursor:pointer;transition:fill-opacity .45s var(--ease),stroke-width .45s}
+.zpoly:hover{fill-opacity:.34;stroke-width:4}
+.zpoly.active{fill-opacity:.42;stroke-width:4.5;stroke-dasharray:none}
+.zpoly.dim{fill-opacity:.04;stroke-opacity:.25}
+.zletter{font-family:'Poppins';font-weight:600;font-size:66px;fill:#fff;fill-opacity:.5;
+  text-anchor:middle;pointer-events:none;transition:fill-opacity .4s}
+.zpoly.active + .zletter{fill-opacity:.95}
+
+/* canopy blobs that lift off the ground in 3D */
+.tree{position:absolute;width:var(--s);height:var(--s);margin:calc(var(--s)/-2);
+  border-radius:50%;background:radial-gradient(circle at 36% 30%,#6FBF6E,#2C6330 68%,#1B3F20);
+  box-shadow:0 10px 18px rgba(0,0,0,.45);opacity:.92}
+
+/* survey markers */
+.pin{position:absolute;transform:translate(-50%,-100%);pointer-events:auto;cursor:pointer}
+.pin .stem{width:2px;height:var(--h,42px);margin:0 auto;
+  background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(255,255,255,.15))}
+.pin .head{position:absolute;left:50%;top:0;transform:translate(-50%,-100%);
+  display:flex;align-items:center;gap:7px;white-space:nowrap;
+  padding:6px 12px;border-radius:999px;background:rgba(8,16,10,.9);
+  border:1px solid rgba(255,255,255,.45);backdrop-filter:blur(8px);
+  font-family:'Kanit';font-weight:300;font-size:12px;color:#fff;
+  transition:background .35s var(--ease),transform .35s var(--ease),border-color .35s}
+.pin:hover .head{background:var(--green);border-color:#fff;transform:translate(-50%,-100%) scale(1.08)}
+.pin .dot{position:absolute;left:50%;bottom:0;width:11px;height:11px;margin-left:-5.5px;margin-bottom:-5.5px;
+  border-radius:50%;background:#fff;box-shadow:0 0 0 4px rgba(255,255,255,.24)}
+.pin .head b{font-family:'Poppins';font-weight:500;color:#BFE8C4;font-size:11px}
+.pin.hot .head{border-color:#F2B84B;box-shadow:0 0 20px rgba(242,184,75,.45)}
+
+/* --- control rail --- */
+.map-rail{
+  position:absolute;left:clamp(14px,1.8vw,32px);top:calc(var(--nav-h) + 6px);
+  width:clamp(230px,18.5vw,290px);
+  height:calc(100vh - var(--nav-h) - 82px);
+  display:flex;flex-direction:column;z-index:20;
+  padding:14px 6px 14px 14px;border-radius:20px;
+  background:rgba(6,13,8,.74);border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(20px);
+  box-shadow:0 24px 60px rgba(0,0,0,.5);
+}
+.rail-scroll{flex:1;min-height:0;overflow-y:auto;padding-right:8px;overscroll-behavior:contain;
+  scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.2) transparent}
+.rail-scroll::-webkit-scrollbar{width:4px}
+.rail-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:9px}
+.rail-h{font-family:'Poppins';font-weight:400;font-size:9px;letter-spacing:.22em;
+  text-transform:uppercase;color:rgba(255,255,255,.38);margin:16px 0 9px}
+.rail-h:first-child{margin-top:0}
+/* compact zone selector */
+.zsel{display:flex;gap:4px}
+.zsel button{flex:1;border:1px solid rgba(255,255,255,.14);background:transparent;cursor:pointer;
+  border-radius:9px;padding:8px 0;color:rgba(255,255,255,.6);
+  font-family:'Poppins';font-weight:500;font-size:12px;
+  transition:background .3s,color .3s,border-color .3s}
+.zsel button:hover{border-color:rgba(255,255,255,.5);color:#fff}
+.zsel button.on{background:var(--zc,#4CA555);border-color:var(--zc,#4CA555);color:#fff}
+.zsel button small{display:block;font-family:'Kanit';font-weight:200;font-size:8px;opacity:.8;margin-top:1px}
+.zname{font-weight:200;font-size:11px;color:rgba(255,255,255,.5);margin-top:8px;text-align:center}
+.chipset{display:flex;flex-wrap:wrap;gap:6px}
+.tog{
+  border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.05);color:rgba(255,255,255,.8);
+  border-radius:999px;padding:6px 11px;cursor:pointer;
+  font-family:'Kanit';font-weight:200;font-size:11.5px;display:flex;align-items:center;gap:6px;
+  transition:background .3s var(--ease),border-color .3s,color .3s,transform .3s}
+.tog:hover{transform:translateY(-2px);border-color:rgba(255,255,255,.55)}
+.tog.on{background:var(--green);border-color:var(--green);color:#fff}
+.tog .sw{width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.55}
+.tog.on .sw{opacity:1}
+.tog[data-g] .sw{background:var(--gc,#fff);opacity:1}
+.seg{display:flex;border-radius:11px;overflow:hidden;border:1px solid rgba(255,255,255,.2)}
+.seg button{flex:1;border:0;background:transparent;color:rgba(255,255,255,.7);cursor:pointer;
+  font-family:'Kanit';font-weight:200;font-size:11px;padding:8px 2px;transition:background .3s,color .3s}
+.seg button.on{background:var(--green);color:#fff}
+.rng{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.rng label{font-weight:200;font-size:11px;color:rgba(255,255,255,.62);min-width:52px}
+.rng input{flex:1;-webkit-appearance:none;appearance:none;height:3px;border-radius:9px;
+  background:rgba(255,255,255,.22);outline:0}
+.rng input::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;
+  background:var(--green-lt);cursor:pointer;box-shadow:0 0 0 3px rgba(111,192,119,.28)}
+.rng input::-moz-range-thumb{width:13px;height:13px;border:0;border-radius:50%;background:var(--green-lt);cursor:pointer}
+.rng em{font-style:normal;font-family:'Poppins';font-size:10px;color:#BFE8C4;min-width:30px;text-align:right}
+
+/* --- bottom bar: legend + camera controls --- */
+.map-bottom{position:absolute;left:50%;transform:translateX(-50%);bottom:clamp(18px,3vh,32px);
+  z-index:20;display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center}
+.map-hud{display:flex;gap:6px;align-items:center;padding:6px;border-radius:999px;
+  background:rgba(6,13,8,.78);border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(16px)}
+.hbtn{width:34px;height:34px;border-radius:50%;cursor:pointer;
+  border:1px solid rgba(255,255,255,.14);background:transparent;
+  color:#fff;font-family:'Poppins';font-weight:400;font-size:14px;display:grid;place-items:center;
+  transition:background .3s var(--ease),transform .3s var(--ease),border-color .3s}
+.hbtn:hover{background:var(--green);border-color:var(--green);transform:translateY(-2px)}
+.hbtn.wide{width:auto;padding:0 13px;border-radius:999px;font-size:11px;letter-spacing:.08em}
+.hbtn.on{background:var(--green);border-color:var(--green)}
+.compass svg{width:18px;height:18px;transition:transform .25s linear}
+
+/* --- info card --- */
+.map-card{
+  position:absolute;right:clamp(14px,1.8vw,32px);top:calc(var(--nav-h) + 6px);z-index:20;
+  width:clamp(260px,23vw,372px);
+  max-height:calc(100vh - var(--nav-h) - 82px);overflow-y:auto;overscroll-behavior:contain;
+  padding:20px;border-radius:20px;
+  background:rgba(6,13,8,.80);border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(20px);
+  box-shadow:0 24px 60px rgba(0,0,0,.5);
+  scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.2) transparent}
+.map-card::-webkit-scrollbar{width:4px}
+.map-card::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:9px}
+.map-card .zdot{width:9px;height:9px;border-radius:50%;background:var(--zc,#4CA555);display:inline-block;margin-right:8px}
+.map-card h3{font-family:'Mitr';font-weight:500;font-size:17px;margin-bottom:3px;display:flex;align-items:center}
+.map-card .sub{font-family:'Poppins';font-weight:300;font-size:10px;letter-spacing:.16em;
+  text-transform:uppercase;color:rgba(255,255,255,.45);margin-bottom:13px}
+.dens{display:flex;align-items:flex-end;gap:8px;margin-bottom:12px}
+.dens b{font-family:'Poppins';font-weight:600;font-size:34px;line-height:.9;color:#fff}
+.dens span{font-weight:200;font-size:10.5px;color:rgba(255,255,255,.6);padding-bottom:3px}
+.env{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.env .e{display:flex;align-items:center;gap:9px;font-weight:200;font-size:11px;color:rgba(255,255,255,.76)}
+.env .e i{font-style:normal;width:15px;text-align:center;opacity:.85}
+.env .e .eb{flex:1;height:4px;border-radius:9px;background:rgba(255,255,255,.14);overflow:hidden}
+.env .e .eb u{display:block;height:100%;border-radius:9px;background:var(--green-lt);
+  width:0;transition:width .8s var(--ease)}
+.env .e em{font-style:normal;font-family:'Poppins';font-size:9.5px;color:#BFE8C4;min-width:26px;text-align:right}
+.map-card .note{font-weight:200;font-size:10.5px;line-height:1.65;color:rgba(255,255,255,.62);
+  border-top:1px solid rgba(255,255,255,.12);padding-top:10px}
+.map-card .glist{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px}
+.map-card .glist span{font-weight:200;font-size:10px;padding:3px 8px;border-radius:999px;
+  background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.16)}
+
+/* --- species picker --- */
+.rail-tabs{display:flex;gap:4px;margin-bottom:14px;padding:3px;border-radius:12px;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14)}
+.rail-tabs button{flex:1;border:0;background:transparent;color:rgba(255,255,255,.66);cursor:pointer;
+  border-radius:9px;font-family:'Kanit';font-weight:300;font-size:11.5px;padding:7px 2px;
+  transition:background .3s,color .3s}
+.rail-tabs button.on{background:var(--green);color:#fff}
+.tabpane{display:none}.tabpane.on{display:block}
+.eb-badge{font-weight:200;font-size:9.5px;line-height:1.5;color:rgba(255,255,255,.4);
+  margin:0 0 11px;padding-left:14px;position:relative}
+.eb-badge::before{content:'';position:absolute;left:0;top:5px;width:6px;height:6px;border-radius:50%;
+  background:rgba(255,255,255,.3)}
+.eb-badge.live{color:#BFE8C4}
+.eb-badge.live::before{background:var(--green-lt);box-shadow:0 0 0 3px rgba(111,192,119,.25)}
+.sp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.sp{position:relative;cursor:pointer;border:0;background:none;padding:0;
+  transition:transform .4s var(--ease)}
+.sp img{width:100%;aspect-ratio:1;border-radius:50%;object-fit:cover;display:block;
+  border:2px solid rgba(255,255,255,.28);
+  transition:border-color .4s var(--ease),box-shadow .4s var(--ease),filter .4s var(--ease)}
+.sp:hover{transform:translateY(-4px) scale(1.05)}
+.sp:hover img{border-color:#fff}
+.sp.on img{border-color:var(--green-lt);box-shadow:0 0 0 4px rgba(111,192,119,.35)}
+.sp.off img{filter:grayscale(.85) brightness(.55);border-color:rgba(255,255,255,.12)}
+.sp .nm{display:block;margin-top:5px;font-weight:200;font-size:9px;line-height:1.25;
+  color:rgba(255,255,255,.72);text-align:center;
+  overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.sp.on .nm{color:#BFE8C4}
+/* search box */
+.searchbox{position:relative;margin-top:10px}
+.searchbox svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);
+  width:13px;height:13px;color:rgba(255,255,255,.38);pointer-events:none}
+.searchbox input{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);
+  border-radius:10px;padding:8px 10px 8px 30px;color:#fff;
+  font-family:'Kanit';font-weight:200;font-size:11.5px;
+  transition:border-color .3s,background .3s}
+.searchbox input::placeholder{color:rgba(255,255,255,.34)}
+.searchbox input:focus{outline:0;border-color:var(--green-lt);background:rgba(255,255,255,.1)}
+.searchbox input::-webkit-search-cancel-button{filter:invert(1);opacity:.4;cursor:pointer}
+
+/* info window ของจุดที่พบ */
+.birdpop .maplibregl-popup-content{background:rgba(6,13,8,.94);border:1px solid rgba(255,255,255,.14);
+  border-radius:14px;padding:12px;backdrop-filter:blur(18px);
+  box-shadow:0 18px 44px rgba(0,0,0,.55);font-family:'Kanit'}
+.birdpop .maplibregl-popup-tip{border-top-color:rgba(6,13,8,.94);border-bottom-color:rgba(6,13,8,.94)}
+.birdpop img{width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:9px;margin-bottom:9px;display:block}
+.birdpop b{display:block;font-family:'Mitr';font-weight:500;font-size:15px;color:#fff;line-height:1.3}
+.birdpop i{display:block;font-family:'Poppins';font-style:normal;font-weight:400;font-size:11px;
+  color:#BFE8C4;margin-bottom:8px}
+.birdpop u{display:inline-flex;align-items:center;gap:5px;text-decoration:none;
+  font-weight:200;font-size:10.5px;padding:3px 9px;border-radius:7px;color:#fff;
+  background:color-mix(in srgb, var(--hc) 22%, transparent);border:1px solid var(--hc)}
+.birdpop span{display:block;font-weight:200;font-size:10.5px;color:rgba(255,255,255,.62);margin-top:7px}
+.birdpop .maplibregl-popup-close-button{color:rgba(255,255,255,.6);font-size:17px;padding:2px 7px}
+.birdpop .maplibregl-popup-close-button:hover{background:transparent;color:#fff}
+
+/* จุดที่พบ · legend ของถิ่นอาศัย */
+.hablist{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.hablist span{display:flex;align-items:center;gap:5px;font-weight:200;font-size:10.5px;
+  padding:4px 9px;border-radius:8px;background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.82)}
+.hablist i{width:7px;height:7px;border-radius:50%;background:var(--hc,#fff);flex:none}
+.hablist b{font-family:'Poppins';font-weight:600;font-size:10.5px;color:#fff}
+
+/* --- species profile card --- */
+.bignum{display:flex;align-items:baseline;gap:9px;margin-bottom:8px}
+.bignum b{font-family:'Poppins';font-weight:600;font-size:42px;line-height:.9;color:#fff}
+.bignum span{font-weight:200;font-size:12px;color:rgba(255,255,255,.7)}
+.bignum small{display:block;font-size:9.5px;color:rgba(255,255,255,.42);margin-top:2px}
+.eb.big{height:5px;border-radius:9px;background:rgba(255,255,255,.12);overflow:hidden;margin-bottom:11px}
+.eb.big u{display:block;height:100%;width:0;border-radius:9px;
+  background:linear-gradient(90deg,#2F7A46,#9BCB3B,#F2C14B);transition:width .9s var(--ease)}
+.zonen{display:flex;gap:6px;flex-wrap:wrap}
+.zonen span{font-weight:200;font-size:10px;padding:4px 9px;border-radius:8px;
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.13);color:rgba(255,255,255,.7)}
+.zonen b{font-family:'Poppins';font-weight:600;color:#BFE8C4;font-size:11px;margin-left:3px}
+.sp-card{display:none}
+.sp-card.on{display:block}
+/* รูปนกใหญ่เต็มความกว้างการ์ด — กดเพื่อขยายเต็มจอได้ */
+.sp-hero{position:relative;width:calc(100% + 40px);margin:-20px -20px 15px;
+  aspect-ratio:4/3;overflow:hidden;background:#0c150a;cursor:zoom-in;
+  border-radius:20px 20px 16px 16px}
+.sp-hero img{width:100%;height:100%;object-fit:cover;display:block;
+  transition:transform .6s var(--ease)}
+.sp-hero:hover img{transform:scale(1.04)}
+.sp-hero::after{content:'⤢';position:absolute;top:10px;right:12px;
+  width:26px;height:26px;border-radius:8px;display:grid;place-items:center;
+  background:rgba(6,13,8,.72);border:1px solid rgba(255,255,255,.22);
+  font-size:13px;color:#fff;backdrop-filter:blur(6px)}
+/* ดูรูปเต็มจอ */
+.lightbox{position:fixed;inset:0;z-index:200;display:none;place-items:center;
+  background:rgba(4,9,6,.94);backdrop-filter:blur(10px);cursor:zoom-out;padding:4vh 4vw}
+.lightbox.on{display:grid}
+.lightbox img{max-width:100%;max-height:88vh;object-fit:contain;border-radius:14px;
+  box-shadow:0 30px 80px rgba(0,0,0,.6)}
+.lightbox p{position:absolute;bottom:3vh;left:50%;transform:translateX(-50%);
+  font-family:'Mitr';font-weight:500;font-size:18px;color:#fff;text-align:center}
+.lightbox p small{display:block;font-family:'Poppins';font-weight:300;font-size:12px;
+  color:rgba(255,255,255,.6);margin-top:3px}
+.sp-hero .cred{position:absolute;left:0;right:0;bottom:0;padding:16px 12px 7px;
+  background:linear-gradient(180deg,transparent,rgba(6,12,8,.9));
+  font-weight:200;font-size:9px;color:rgba(255,255,255,.65)}
+.sp-th{font-family:'Mitr';font-weight:500;font-size:25px;line-height:1.22;margin-bottom:2px}
+.sp-en{font-family:'Poppins';font-weight:400;font-size:14px;color:#BFE8C4;letter-spacing:.01em}
+.sp-sci{font-family:'Poppins';font-weight:300;font-style:italic;font-size:12px;
+  color:rgba(255,255,255,.5);margin-bottom:14px}
+.sp-sec{font-family:'Poppins';font-weight:300;font-size:9px;letter-spacing:.2em;
+  text-transform:uppercase;color:rgba(255,255,255,.4);margin:16px 0 7px}
+.sp-body{font-weight:200;font-size:13.5px;line-height:1.82;color:rgba(255,255,255,.88)}
+.sp-zones{display:flex;flex-wrap:wrap;gap:5px}
+.sp-zones b{font-family:'Kanit';font-weight:300;font-size:11px;padding:5px 11px;border-radius:999px;
+  background:var(--zc,#4CA555)33;border:1px solid var(--zc,#4CA555);color:#fff}
+.sp-back{margin-top:14px;width:100%;border:1px solid rgba(255,255,255,.25);
+  background:rgba(255,255,255,.06);color:#fff;cursor:pointer;border-radius:10px;
+  font-family:'Kanit';font-weight:200;font-size:11.5px;padding:9px;
+  transition:background .3s,border-color .3s}
+.sp-back:hover{background:rgba(255,255,255,.16);border-color:#fff}
+.zone-card{display:block}
+.zone-card.off{display:none}
+
+/* --- legend --- */
+.map-legend{display:flex;align-items:center;gap:11px;padding:9px 16px;border-radius:999px;
+  background:rgba(6,13,8,.78);border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(16px)}
+.map-legend .bar{width:clamp(100px,11vw,170px);height:6px;border-radius:9px;
+  background:linear-gradient(90deg,#14504620,#2F7A46,#7FBE3E,#F2C14B,#E8743B,#D8402F)}
+.map-legend small{font-weight:200;font-size:10px;color:rgba(255,255,255,.6);white-space:nowrap}
+
+@media (max-width:1280px){
+  .map-card{width:250px;padding:15px}
+  .sp-th{font-size:20px}.sp-body{font-size:12px}
+  .map-rail{width:206px}
+  .sp-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:900px){
+  .map-shell{position:relative;display:flex;flex-direction:column;
+    padding:calc(var(--nav-h) + 14px) 5vw 24px;gap:12px}
+  .map-rail{position:relative;left:auto;top:auto;width:100%;height:auto;max-height:62vh;flex:none}
+  .map-viewport{position:relative;inset:auto;flex:1;min-height:78vw;border-radius:18px;
+    border:1px solid rgba(255,255,255,.12)}
+  .map-card{position:relative;right:auto;top:auto;width:100%;max-height:none}
+  .map-bottom{position:relative;left:auto;bottom:auto;transform:none}
+  .sp-grid{grid-template-columns:repeat(4,1fr)}
+}
+
+
+/* ==========================================================================
+   ⚙ แผงตั้งค่า — จัดรูปนก · เพิ่มชนิด · อัปเดต eBird
+   ========================================================================== */
+.gear{width:34px;height:34px;border-radius:10px;cursor:pointer;flex:none;
+  border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);
+  color:#fff;display:grid;place-items:center;pointer-events:auto;margin-left:14px;
+  transition:background .3s var(--ease),transform .5s var(--ease),border-color .3s}
+.gear svg{width:17px;height:17px}
+.gear:hover{background:var(--green);border-color:var(--green);transform:rotate(90deg)}
+
+.sheet{position:fixed;inset:0;z-index:150;display:none;background:rgba(4,9,6,.72);backdrop-filter:blur(8px)}
+.sheet.on{display:block}
+.sheet-in{position:absolute;inset:3vh 3vw;border-radius:22px;overflow:hidden;
+  background:#0a130c;border:1px solid rgba(255,255,255,.13);
+  box-shadow:0 40px 90px rgba(0,0,0,.6);display:flex;flex-direction:column}
+.sheet-bar{flex:none;height:54px;display:flex;align-items:center;gap:9px;padding:0 16px;
+  border-bottom:1px solid rgba(255,255,255,.09);background:rgba(6,13,8,.7)}
+.sheet-bar h2{font-family:'Mitr';font-weight:500;font-size:15px;margin-right:6px}
+.sheet-bar .sp{flex:1}
+.stabs{display:flex;gap:3px;padding:3px;border-radius:11px;background:rgba(255,255,255,.06)}
+.stabs button{border:0;background:transparent;color:rgba(255,255,255,.62);cursor:pointer;
+  border-radius:8px;font-family:'Kanit';font-weight:300;font-size:11.5px;padding:7px 14px;transition:.25s}
+.stabs button.on{background:var(--green);color:#fff}
+.sbtn{border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#fff;
+  cursor:pointer;border-radius:9px;padding:8px 14px;font-family:'Kanit';font-weight:300;font-size:11.5px;
+  transition:background .3s,border-color .3s,transform .3s}
+.sbtn:hover{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.5);transform:translateY(-1px)}
+.sbtn.pri{background:var(--green);border-color:var(--green)}
+.sbtn.pri:hover{background:var(--green-lt);border-color:var(--green-lt)}
+.sbtn:disabled{opacity:.35;pointer-events:none}
+.sheet-body{flex:1;min-height:0;position:relative}
+.spane{position:absolute;inset:0;display:none}
+.spane.on{display:grid}
+
+#panePhoto{grid-template-columns:224px 1fr 288px}
+.pcol{min-height:0;display:flex;flex-direction:column}
+.pcol + .pcol{border-left:1px solid rgba(255,255,255,.08)}
+.pch{padding:10px 13px 7px;font-family:'Poppins';font-weight:400;font-size:8.5px;
+  letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.36);flex:none}
+.pscroll{flex:1;min-height:0;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.2) transparent}
+.pscroll::-webkit-scrollbar{width:5px}
+.pscroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:9px}
+.pitem{display:flex;align-items:center;gap:9px;padding:6px 11px;cursor:pointer;
+  border-left:2px solid transparent;transition:background .25s}
+.pitem:hover{background:rgba(255,255,255,.05)}
+.pitem.on{background:rgba(76,165,85,.16);border-left-color:var(--green)}
+.pitem img{width:30px;height:30px;border-radius:50%;object-fit:cover;flex:none;
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14)}
+.pitem .tx{min-width:0;flex:1}
+.pitem b{display:block;font-weight:300;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pitem small{display:block;font-family:'Poppins';font-weight:300;font-size:8.5px;
+  color:rgba(255,255,255,.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pitem i{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.18);flex:none;font-style:normal}
+.pitem.done i{background:var(--green-lt)}
+.pedit{flex:1;min-height:0;position:relative;display:grid;place-items:center;overflow:hidden;
+  background:repeating-conic-gradient(#0e1710 0 25%, #101a12 0 50%) 0 0/22px 22px}
+.pstage{position:relative;cursor:grab;touch-action:none;user-select:none}
+.pstage.drag{cursor:grabbing}
+.pstage canvas{display:block;border-radius:6px}
+.pstage svg{position:absolute;inset:0;pointer-events:none}
+.pempty{text-align:center;color:rgba(255,255,255,.45);font-weight:200;font-size:12px;line-height:1.9;padding:20px}
+.pempty b{display:block;font-family:'Mitr';font-weight:400;font-size:17px;color:#fff;margin-bottom:5px}
+.ptools{flex:none;display:flex;align-items:center;gap:8px;padding:10px 13px;flex-wrap:wrap;
+  border-top:1px solid rgba(255,255,255,.08);background:rgba(6,13,8,.6)}
+.ppv{flex:none;padding:11px 13px;border-bottom:1px solid rgba(255,255,255,.08);
+  display:flex;gap:11px;align-items:flex-start}
+.ppv div{text-align:center}
+.ppv span{display:block;font-weight:200;font-size:8.5px;color:rgba(255,255,255,.4);margin-top:3px}
+.ppv canvas{background:#0c150a;border:1px solid rgba(255,255,255,.14)}
+#pvAv{width:78px;height:78px;border-radius:50%}
+#pvCard{width:130px;height:98px;border-radius:8px}
+.pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:7px 9px}
+.pth{position:relative;aspect-ratio:1;border-radius:6px;overflow:hidden;cursor:pointer;
+  border:2px solid transparent;background:rgba(255,255,255,.05);transition:.25s}
+.pth img{width:100%;height:100%;object-fit:cover;display:block}
+.pth:hover{border-color:rgba(255,255,255,.55)}
+.pth.on{border-color:var(--green-lt)}
+.pth i{position:absolute;left:2px;bottom:2px;font-style:normal;font-size:7.5px;
+  padding:1px 4px;border-radius:4px;background:rgba(6,13,8,.85);color:#BFE8C4}
+.pmeta{padding:8px 13px;font-weight:200;font-size:10px;line-height:1.65;
+  color:rgba(255,255,255,.58);border-top:1px solid rgba(255,255,255,.08)}
+.pmeta b{color:#BFE8C4;font-family:'Poppins';font-weight:500}
+.pmeta .w{color:#E8A88F}
+.psearch{padding:0 9px 7px}
+.psearch input{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);
+  border-radius:8px;padding:6px 10px;color:#fff;font-family:'Kanit';font-weight:200;font-size:10.5px}
+.psearch input:focus{outline:0;border-color:var(--green-lt)}
+
+.form{padding:20px 24px;overflow-y:auto;max-width:880px}
+.form h3{font-family:'Mitr';font-weight:500;font-size:16px;margin-bottom:4px}
+.form p.d{font-weight:200;font-size:11.5px;color:rgba(255,255,255,.5);margin-bottom:18px;line-height:1.7}
+.frow{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:12px}
+.fld label{display:block;font-family:'Poppins';font-weight:400;font-size:8.5px;letter-spacing:.16em;
+  text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:5px}
+.fld input,.fld textarea,.fld select{width:100%;background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.14);border-radius:9px;padding:9px 12px;color:#fff;
+  font-family:'Kanit';font-weight:200;font-size:12px;transition:border-color .3s,background .3s}
+.fld textarea{resize:vertical;min-height:74px;line-height:1.7}
+.fld input:focus,.fld textarea:focus,.fld select:focus{outline:0;border-color:var(--green-lt);background:rgba(255,255,255,.1)}
+.fld select option{background:#0a130c}
+.zpick{display:flex;gap:6px}
+.zpick button{flex:1;border:1px solid rgba(255,255,255,.14);background:transparent;cursor:pointer;
+  border-radius:9px;padding:9px 0;color:rgba(255,255,255,.6);
+  font-family:'Poppins';font-weight:500;font-size:12px;transition:.25s}
+.zpick button.on{background:var(--green);border-color:var(--green);color:#fff}
+.habrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+.habrow .h{display:flex;align-items:center;gap:8px}
+.habrow .h label{flex:1;font-weight:200;font-size:11px;color:rgba(255,255,255,.7);
+  text-transform:none;letter-spacing:0;font-family:'Kanit';margin:0}
+.habrow .h input{width:66px;padding:6px 8px;font-size:11px}
+.eb-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);
+  border-radius:14px;padding:16px 18px}
+.eb-card b{font-family:'Poppins';font-weight:600;font-size:22px;color:#BFE8C4}
+.eb-card small{display:block;font-weight:200;font-size:11px;color:rgba(255,255,255,.55);margin-top:3px}
+.eb-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.eb-log{font-family:'Poppins';font-weight:300;font-size:10.5px;line-height:1.9;
+  color:rgba(255,255,255,.55);background:rgba(0,0,0,.3);border-radius:10px;padding:12px 14px;
+  max-height:200px;overflow-y:auto;white-space:pre-wrap}
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);
+  background:rgba(6,13,8,.96);border:1px solid var(--green);color:#fff;
+  padding:11px 20px;border-radius:999px;font-weight:300;font-size:12px;
+  opacity:0;pointer-events:none;transition:.4s var(--ease);z-index:220}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* --- ปุ่มเพิ่มการพบเห็น + ฟอร์ม --- */
+.addfab{position:fixed;right:clamp(14px,1.8vw,32px);bottom:clamp(80px,11vh,120px);z-index:120;
+  display:flex;align-items:center;gap:8px;cursor:pointer;
+  padding:12px 20px;border-radius:999px;border:0;background:var(--green);color:#fff;
+  font-family:'Kanit';font-weight:300;font-size:13px;
+  box-shadow:0 14px 34px rgba(0,0,0,.45);
+  transition:background .3s var(--ease),transform .3s var(--ease),box-shadow .3s}
+.addfab svg{width:16px;height:16px}
+.addfab:hover{background:var(--green-lt);transform:translateY(-3px);box-shadow:0 20px 44px rgba(0,0,0,.5)}
+.add-in{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:min(680px,92vw);max-height:88vh;border-radius:20px;overflow:hidden;
+  background:#0a130c;border:1px solid rgba(255,255,255,.13);
+  box-shadow:0 40px 90px rgba(0,0,0,.6);display:flex;flex-direction:column}
+.add-in .form{overflow-y:auto}
+.map-viewport.picking{cursor:crosshair}
+.pickhint{position:absolute;left:50%;top:calc(var(--nav-h) + 16px);transform:translateX(-50%);
+  z-index:130;padding:9px 18px;border-radius:999px;background:var(--green);color:#fff;
+  font-weight:300;font-size:12px;box-shadow:0 10px 30px rgba(0,0,0,.4);display:none}
+.pickhint.on{display:block}
+
+/* ---------- มือถือ iOS / Android ---------- */
+@media (max-width:900px){
+  :root{--nav-h:52px}
+  html,body{height:100%;overscroll-behavior:none}
+  body{overflow:hidden}
+  .topbar{position:fixed;height:var(--nav-h);padding:0 12px;
+    background:rgba(5,11,7,.96);border-bottom:1px solid rgba(255,255,255,.08)}
+  .brand h1{font-size:12px}.brand span{font-size:9px}
+  .brand .mk{width:26px;height:26px}
+  #map{position:fixed;inset:0;top:0}
+  .map-shell{position:absolute;inset:0;display:block;padding:0}
+  .map-viewport{position:absolute;inset:var(--nav-h) 0 0 0;border:0;border-radius:0;min-height:0}
+
+  /* แผงซ้าย = แผ่นเลื่อนขึ้นจากล่าง */
+  .map-rail{position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;
+    height:auto;max-height:58vh;border-radius:20px 20px 0 0;z-index:60;
+    transform:translateY(calc(100% - 52px));transition:transform .38s var(--ease);
+    padding:10px 8px 16px 14px}
+  .map-rail.open{transform:translateY(0)}
+  .map-rail::before{content:'';position:absolute;left:50%;top:7px;transform:translateX(-50%);
+    width:38px;height:4px;border-radius:99px;background:rgba(255,255,255,.3)}
+  .rail-tabs{margin-top:12px}
+  .sp-grid{grid-template-columns:repeat(4,1fr)}
+
+  /* การ์ดขวา = แผ่นเต็มจอเมื่อเลือกนก */
+  .map-card{position:fixed;inset:var(--nav-h) 0 0 0;width:auto;max-height:none;
+    border-radius:0;padding:16px;z-index:70;display:none;overflow-y:auto}
+  .map-card.show{display:block}
+  .sp-hero{width:calc(100% + 32px);margin:-16px -16px 14px;aspect-ratio:3/2}
+  .sp-th{font-size:22px}
+
+  .map-bottom{position:fixed;left:50%;bottom:60px;transform:translateX(-50%);
+    flex-direction:row;gap:7px;z-index:55}
+  .map-legend{padding:7px 12px}
+  .map-legend .bar{width:80px}
+  .hbtn{width:31px;height:31px;font-size:13px}
+  .hbtn.wide{padding:0 10px;font-size:10px}
+  .addfab{right:12px;bottom:60px;padding:10px 16px;font-size:12px;z-index:56}
+  .sheet-in{inset:0;border-radius:0}
+  .add-in{width:100%;height:100%;max-height:none;border-radius:0;top:0;left:0;transform:none}
+  #panePhoto{grid-template-columns:1fr}
+  .pcol:nth-child(2),.pcol:nth-child(3){display:none}
+  .stabs{flex-wrap:wrap}
+  .stabs button{font-size:10.5px;padding:6px 9px}
+}
+@media (max-width:900px) and (orientation:landscape){
+  .map-rail{max-height:78vh}
+}
+
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="mk">
+      <svg viewBox="-32 -22 64 44" fill="#fff">
+        <path d="M0,2 C-7,-3 -17,-12 -29,-11 C-19,-3 -9,1 0,3Z"/>
+        <path d="M0,2 C7,-3 17,-12 29,-11 C19,-3 9,1 0,3Z"/>
+        <path d="M-6,2 C-3,-1 3,-1 7,1 C9,1.6 10,2.4 11,3.2 C8,4 3,4.4 -2,4 C-5,3.8 -6,3 -6,2Z"/>
+      </svg>
+    </span>
+    <span>
+      <h1>Rot Fai Park Bird Map</h1>
+      <span>แผนที่ความหนาแน่นนก · สวนวชิรเบญจทัศ</span>
+    </span>
+  </div>
+  <div class="spacer"></div>
+  <div class="tstat">
+    <span><b id="tSpecies">0</b>ชนิด</span>
+    <span><b id="tBirds">0</b>ตัว</span>
+    <span><b id="tZones">4</b>โซน</span>
+  </div>
+  <button class="gear" id="btnGear" title="ตั้งค่า — จัดรูปนก · เพิ่มชนิด · อัปเดต eBird">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+         stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3.2"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+  </button>
+</header>
+
+<!-- ============ ⚙ แผงตั้งค่า ============ -->
+<div class="sheet" id="sheet">
+  <div class="sheet-in">
+    <div class="sheet-bar">
+      <h2>ตั้งค่า</h2>
+      <div class="stabs" id="sheetTabs">
+        <button data-p="Photo" class="on">จัดรูปนก</button>
+        <button data-p="Add">เพิ่มชนิดนก</button>
+        <button data-p="Data">ข้อมูล eBird</button>
+        <button data-p="Cloud">คลาวด์</button>
+        <button data-p="Pub">เผยแพร่เว็บ</button>
+      </div>
+      <button class="sbtn pri" id="pPickFolder">+ เพิ่มทั้งโฟลเดอร์</button>
+      <button class="sbtn" id="pPickFiles">+ เพิ่มทีละไฟล์</button>
+      <span class="sp"></span>
+      <span class="pmeta" id="gearStat" style="border:0;padding:0"></span>
+      <button class="sbtn" id="sheetClose">ปิด</button>
+    </div>
+
+    <div class="sheet-body">
+      <!-- ---------- จัดรูปนก ---------- -->
+      <div class="spane on" id="panePhoto">
+        <div class="pcol">
+          <p class="pch">ชนิดนก <span id="pDone"></span></p>
+          <div class="pscroll" id="pList"></div>
+        </div>
+
+        <div class="pcol">
+          <div class="pedit" id="pEdit">
+            <div class="pempty" id="pEmpty">
+              <b>เริ่มจากเลือกโฟลเดอร์รูป</b>
+              รูปจะถูกเก็บไว้ในเบราว์เซอร์ ครั้งหน้าไม่ต้องเลือกใหม่<br>
+              เลือกชนิดทางซ้าย แล้วเลือกรูปทางขวา
+            </div>
+            <div class="pstage" id="pStage" hidden>
+              <canvas id="pCv"></canvas><svg id="pMask"></svg>
+            </div>
+          </div>
+          <div class="ptools">
+            <div class="stabs" id="pFrame">
+              <button data-f="av" class="on">เฟรมวงกลม</button>
+              <button data-f="card">เฟรมรูปใหญ่ 4:3</button>
+            </div>
+            <div class="rng"><label>ซูม</label>
+              <input type="range" id="pZoom" min="20" max="400" value="100"><em id="pZoomV">1.00×</em></div>
+            <button class="sbtn" id="pFit">จัดกึ่งกลาง</button>
+            <button class="sbtn" id="pAuto">หาตัวนกอัตโนมัติ</button>
+            <button class="sbtn pri" id="pApply">ใช้รูปนี้</button>
+          </div>
+        </div>
+
+        <div class="pcol">
+          <div class="ppv">
+            <div><canvas id="pvAv" width="400" height="400"></canvas><span>วงกลมจริง</span></div>
+            <div><canvas id="pvCard" width="800" height="600"></canvas><span>รูปใหญ่ 4:3</span></div>
+          </div>
+          <p class="pch">รูปในโฟลเดอร์ <span id="pCount"></span></p>
+          <div class="psearch"><input type="search" id="pSearch" placeholder="ค้นหาชื่อไฟล์ เช่น 7265"></div>
+          <div class="pscroll"><div class="pgrid" id="pGrid"></div></div>
+          <div class="pmeta" id="pMeta">ยังไม่ได้เลือกรูป</div>
+        </div>
+      </div>
+
+      <!-- ---------- เพิ่มชนิดนก ---------- -->
+      <div class="spane" id="paneAdd">
+        <div class="form">
+          <h3>เพิ่มชนิดนกใหม่</h3>
+          <p class="d">กรอกข้อมูลแล้วกดบันทึก ชนิดใหม่จะโผล่ในรายชื่อทันที
+            จากนั้นไปแท็บ “จัดรูปนก” เพื่อใส่รูป — ถ้ารูปมี GPS ระบบจะเพิ่มจุดพบจริงให้เอง</p>
+
+          <div class="frow">
+            <div class="fld"><label>ชื่อไทย *</label><input id="fTh" placeholder="เช่น นกเอี้ยงด่าง"></div>
+            <div class="fld"><label>ชื่ออังกฤษ *</label><input id="fEn" placeholder="Asian Pied Starling"></div>
+            <div class="fld"><label>ชื่อวิทยาศาสตร์</label><input id="fSci" placeholder="Gracupica contra"></div>
+          </div>
+
+          <div class="frow">
+            <div class="fld"><label>กลุ่มนก</label>
+              <select id="fGroup">
+                <option value="water">นกน้ำ</option>
+                <option value="insect" selected>นกกินแมลง</option>
+                <option value="raptor">นกล่าเหยื่อ</option>
+                <option value="urban">นกเมือง</option>
+                <option value="migrant">นกอพยพ</option>
+              </select></div>
+            <div class="fld"><label>จำนวนที่พบ (ตัว)</label><input id="fCount" type="number" min="1" value="10"></div>
+            <div class="fld"><label>โซนที่พบ * (กดเลือกได้หลายโซน)</label>
+              <div class="zpick" id="fZones">
+                <button data-z="A">A</button><button data-z="B">B</button>
+                <button data-z="C">C</button><button data-z="D">D</button>
+              </div></div>
+          </div>
+
+          <div class="fld" style="margin-bottom:12px"><label>พฤติกรรม</label>
+            <textarea id="fBeh" placeholder="สิ่งที่สังเกตเห็นจริงตอนสำรวจ จะดีกว่าคัดจากตำรา"></textarea></div>
+          <div class="fld" style="margin-bottom:16px"><label>พบที่ไหนในสวน</label>
+            <textarea id="fWhere" placeholder="เช่น สนามหญ้าเปิดริมทางเดินโซน B"></textarea></div>
+
+          <p class="pch" style="padding-left:0">ถิ่นอาศัยที่ชอบ · 0–100</p>
+          <div class="habrow" style="margin-bottom:18px">
+            <div class="h"><label>ริมน้ำ</label><input id="hWater" type="number" min="0" max="100" value="0"></div>
+            <div class="h"><label>เรือนยอดไม้ใหญ่</label><input id="hCanopy" type="number" min="0" max="100" value="0"></div>
+            <div class="h"><label>สนามหญ้าเปิด</label><input id="hLawn" type="number" min="0" max="100" value="60"></div>
+            <div class="h"><label>พุ่มไม้/หญ้าสูง</label><input id="hScrub" type="number" min="0" max="100" value="0"></div>
+            <div class="h"><label>ทางเดิน/ลานคน</label><input id="hPath" type="number" min="0" max="100" value="0"></div>
+          </div>
+
+          <button class="sbtn pri" id="fSave">บันทึกชนิดใหม่</button>
+          <button class="sbtn" id="fClear">ล้างฟอร์ม</button>
+          <p class="d" style="margin-top:18px" id="fList"></p>
+        </div>
+      </div>
+
+      <!-- ---------- ข้อมูล eBird ---------- -->
+      <div class="spane" id="paneData">
+        <div class="form">
+          <h3>ข้อมูลจาก eBird</h3>
+          <p class="d">hotspot <b>Rot Fai Park (L990195)</b> · ช่วง <b>1 ม.ค. – 5 ส.ค. 2569</b><br>
+            ดึงทีละวันแล้วเก็บไว้ในเบราว์เซอร์ กดอัปเดตเมื่อไหร่ก็ได้ ระบบจะดึงเฉพาะวันที่ยังไม่มี</p>
+
+          <div class="eb-grid">
+            <div class="eb-card"><b id="dSpecies">0</b><small>ชนิดที่จับคู่ได้</small></div>
+            <div class="eb-card"><b id="dBirds">0</b><small>จำนวนตัวรวม</small></div>
+            <div class="eb-card"><b id="dDays">0</b><small>วันที่มีข้อมูล</small></div>
+            <div class="eb-card"><b id="dCache">0</b><small>วันที่เก็บไว้แล้ว</small></div>
+          </div>
+
+          <p class="d" style="color:#BFE8C4;margin-bottom:12px">
+            เว็บจะไม่ดึง eBird อัตโนมัติตอนเปิด เพราะ 217 คำขอจะแย่งแบนด์วิดท์กับแผนที่จนแลค
+            — กดปุ่มข้างล่างเมื่อต้องการอัปเดต แล้วอย่าลืมส่งออก data.json ไปวางคู่กับเว็บ</p>
+          <button class="sbtn pri" id="dRefresh">โหลด / อัปเดตข้อมูล eBird</button>
+          <button class="sbtn" id="dForce">ดึงใหม่ทั้งหมด (ล้าง cache)</button>
+          <button class="sbtn" id="dExport">ส่งออก CSV</button>
+
+          <p class="pch" style="padding-left:0;margin-top:18px">รายละเอียด</p>
+          <div class="eb-log" id="dLog">ยังไม่ได้ดึงข้อมูล</div>
+        </div>
+      </div>
+
+      <!-- ---------- คลาวด์ ---------- -->
+      <div class="spane" id="paneCloud">
+        <div class="form">
+          <h3>คลาวด์ — ให้ทุกคนเห็นข้อมูลชุดเดียวกัน</h3>
+          <p class="d">ตอนนี้ข้อมูลทั้งหมดอยู่ในเบราว์เซอร์เครื่องนี้เท่านั้น
+            ต่อคลาวด์แล้วทุกคนที่มีลิงก์จะเห็นเหมือนกัน และเพิ่มข้อมูลเข้ามาได้ด้วย<br>
+            วิธีสมัครและตั้งค่าอยู่ในไฟล์ <b>ตั้งค่าคลาวด์-supabase.md</b> ในโฟลเดอร์ นก</p>
+
+          <div class="frow">
+            <div class="fld"><label>Project URL</label>
+              <input id="cUrl" placeholder="https://xxxxxxxx.supabase.co"></div>
+            <div class="fld"><label>Anon key (public)</label>
+              <input id="cKey" placeholder="eyJhbGciOi..."></div>
+          </div>
+          <div class="frow" style="margin-bottom:8px">
+            <button class="sbtn" id="cTest">ทดสอบการเชื่อมต่อ</button>
+            <button class="sbtn pri" id="cPush">อัปโหลดทุกอย่างขึ้นคลาวด์</button>
+            <button class="sbtn" id="cPull">ดึงข้อมูลล่าสุดลงมา</button>
+          </div>
+          <p class="d">anon key ฝังในหน้าเว็บได้ ไม่ใช่ความลับ — ความปลอดภัยมาจาก policy
+            ที่ตั้งไว้ในฐานข้อมูล คือ อ่านได้ เพิ่มได้ แต่ลบของคนอื่นไม่ได้</p>
+
+          <p class="pch" style="padding-left:0;margin-top:18px">ให้คนอื่นเพิ่มข้อมูลได้</p>
+          <div class="habrow" style="margin-bottom:10px">
+            <div class="h" style="gap:11px">
+              <input type="checkbox" id="cAllowAdd" checked style="width:17px;height:17px;accent-color:#4CA555">
+              <label for="cAllowAdd">แสดงปุ่ม “เพิ่มการพบเห็น” ให้ผู้เข้าชมทุกคน</label>
+            </div>
+          </div>
+          <div class="frow">
+            <div class="fld"><label>รหัสผ่านก่อนเพิ่ม (เว้นว่าง = ไม่ต้องใช้)</label>
+              <input id="cPass" placeholder="เช่น rotfai2569"></div>
+          </div>
+          <p class="d">ถ้าใส่รหัส ผู้เข้าชมต้องกรอกก่อนส่งข้อมูล ดูได้อย่างเดียวโดยไม่ต้องมีรหัส</p>
+
+          <div class="eb-log" id="cLog" style="margin-top:14px">ยังไม่ได้เชื่อมต่อ</div>
+        </div>
+      </div>
+
+      <!-- ---------- เผยแพร่เว็บ ---------- -->
+      <div class="spane" id="panePub">
+        <div class="form">
+          <h3>เอาเว็บขึ้นออนไลน์ให้คนอื่นเข้าดูได้</h3>
+          <p class="d">ทุกอย่างที่คุณตั้งค่าไว้ตอนนี้ (รูป · ชนิดที่เพิ่มเอง · ข้อมูล eBird · ขอบเขตสวน)
+            เก็บอยู่ในเบราว์เซอร์เครื่องนี้เท่านั้น คนอื่นจะไม่เห็น<br>
+            ต้องกด 2 ปุ่มข้างล่างเพื่ออบทุกอย่างออกมาเป็นไฟล์ก่อน แล้วค่อยอัปโหลด</p>
+
+          <p class="pch" style="padding-left:0">ขั้นที่ 1 — อบไฟล์ออกมา</p>
+          <div class="frow" style="margin-bottom:8px">
+            <button class="sbtn pri" id="uExportImg">1. ส่งออกรูปนกทั้งหมด</button>
+            <button class="sbtn pri" id="uExportData">2. ส่งออกไฟล์ข้อมูล data.json</button>
+          </div>
+          <p class="d">รูปที่ได้ชื่อ <b>ชนิด.jpg</b> กับ <b>ชนิด_av.jpg</b> — เอาไปวางทับในโฟลเดอร์
+            <b>assets/birds/</b><br>ส่วน <b>data.json</b> วางไว้ข้าง ๆ <b>index.html</b>
+            เว็บจะอ่านข้อมูลจากไฟล์นี้แทนการเรียก eBird สด ทำให้คนอื่นเปิดได้เร็วและไม่ต้องใช้ API key</p>
+
+          <p class="pch" style="padding-left:0;margin-top:20px">ขั้นที่ 2 — อัปโหลด</p>
+          <div class="eb-grid">
+            <div class="eb-card"><b style="font-size:15px">Netlify Drop</b>
+              <small>ง่ายสุด ลากโฟลเดอร์ทั้งอันไปวางที่ app.netlify.com/drop
+                ได้ลิงก์ทันที ไม่ต้องสมัครก็ได้ ฟรี</small></div>
+            <div class="eb-card"><b style="font-size:15px">GitHub Pages</b>
+              <small>อัปโหลดเข้า repo แล้วเปิด Pages ในหน้า Settings
+                เหมาะถ้าอยากเก็บประวัติการแก้ไข ฟรี</small></div>
+            <div class="eb-card"><b style="font-size:15px">Cloudflare Pages</b>
+              <small>ลากโฟลเดอร์เหมือนกัน เร็วในไทย รองรับคนเข้าเยอะ ฟรี</small></div>
+          </div>
+          <p class="d">ทั้งสามแบบได้ลิงก์แบบ <b>ใครมีลิงก์ก็เปิดได้</b> และไม่ขึ้นใน Google
+            ถ้าไม่ได้ไปส่งให้ Google เก็บข้อมูลเอง<br>
+            ข้อดีอีกอย่าง — พอขึ้นออนไลน์แล้ว การดึงขอบเขตสวนจาก OpenStreetMap จะทำงานได้
+            ต่างจากตอนเปิดไฟล์จากเครื่องที่มักโดนบล็อก</p>
+
+          <p class="pch" style="padding-left:0;margin-top:20px">ขั้นที่ 3 — ปิดโหมดผู้ดูแล</p>
+          <div class="habrow" style="margin-bottom:12px">
+            <div class="h" style="gap:11px">
+              <input type="checkbox" id="uHide" style="width:17px;height:17px;accent-color:#4CA555">
+              <label for="uHide">ซ่อนปุ่มฟันเฟืองจากผู้เข้าชม</label>
+            </div>
+          </div>
+          <p class="d">เมื่อติ๊กแล้ว คนทั่วไปจะเห็นแค่แผนที่ ส่วนคุณกลับเข้ามาแก้ได้เสมอ
+            โดยเติม <b>?edit</b> ต่อท้าย URL<br>
+            <span style="color:#E8A88F">ข้อควรระวัง —</span> API key ของ eBird ฝังอยู่ในไฟล์
+            ถ้าเว็บขึ้นออนไลน์ คนอื่นเปิดดูซอร์สโค้ดก็เห็น ควรขอ key ใหม่แยกไว้ใช้เฉพาะเว็บนี้
+            หรือถ้าใช้ data.json แล้วจะลบ key ทิ้งไปเลยก็ได้</p>
+
+          <div class="eb-log" id="uLog" style="margin-top:14px">ยังไม่ได้ส่งออก</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<input id="pPick" type="file" accept="image/jpeg" multiple webkitdirectory directory hidden>
+<input id="pPick2" type="file" accept="image/jpeg" multiple hidden>
+
+<!-- ============ ปุ่มเพิ่มการพบเห็น (ผู้เข้าชมทุกคน) ============ -->
+<button class="addfab" id="btnAdd" hidden>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+    <path d="M12 5v14M5 12h14"/></svg>
+  เพิ่มการพบเห็น
+</button>
+
+<div class="sheet" id="addSheet">
+  <div class="add-in">
+    <div class="sheet-bar">
+      <h2>เพิ่มการพบเห็นนก</h2><span class="sp"></span>
+      <button class="sbtn" id="addClose">ปิด</button>
+    </div>
+    <div class="form" style="max-width:none">
+      <p class="d">ข้อมูลที่ส่งจะขึ้นบนแผนที่ให้ทุกคนเห็น
+        กรุณากรอกเฉพาะสิ่งที่เห็นจริงในสวนวชิรเบญจทัศ</p>
+
+      <div class="frow">
+        <div class="fld"><label>ชนิดนก *</label>
+          <select id="aSpecies"></select></div>
+        <div class="fld"><label>จำนวนที่เห็น</label>
+          <input id="aCount" type="number" min="1" value="1"></div>
+        <div class="fld"><label>วันที่พบ</label>
+          <input id="aDate" type="date"></div>
+      </div>
+
+      <p class="pch" style="padding-left:0">ตำแหน่งที่พบ *</p>
+      <div class="frow" style="margin-bottom:8px">
+        <button class="sbtn" id="aGeo">ใช้ตำแหน่งปัจจุบันของฉัน</button>
+        <button class="sbtn" id="aPickMap">คลิกเลือกบนแผนที่</button>
+      </div>
+      <div class="frow">
+        <div class="fld"><label>ละติจูด</label><input id="aLat" placeholder="13.8122"></div>
+        <div class="fld"><label>ลองจิจูด</label><input id="aLon" placeholder="100.5539"></div>
+      </div>
+      <p class="d" id="aGeoNote">ถ้ารูปที่แนบมีพิกัด GPS ระบบจะกรอกให้อัตโนมัติ</p>
+
+      <div class="frow">
+        <div class="fld"><label>แนบรูป (ไม่บังคับ)</label>
+          <input id="aPhoto" type="file" accept="image/*"></div>
+        <div class="fld"><label>ชื่อผู้บันทึก</label>
+          <input id="aBy" placeholder="ใส่ชื่อหรือเว้นว่างก็ได้"></div>
+      </div>
+
+      <div class="fld" style="margin-bottom:12px"><label>บันทึกเพิ่มเติม</label>
+        <textarea id="aNote" placeholder="เช่น กำลังหากินบนสนามหญ้า อยู่เป็นฝูง 5 ตัว"></textarea></div>
+
+      <div class="fld" id="aPassWrap" style="margin-bottom:14px" hidden>
+        <label>รหัสผ่าน</label><input id="aPass" type="password" placeholder="ขอจากผู้ดูแล"></div>
+
+      <button class="sbtn pri" id="aSend">ส่งข้อมูล</button>
+      <span class="pmeta" id="aStat" style="border:0;padding:0 0 0 12px"></span>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<main id="map">
+  <div class="map-shell">
+    <div class="pickhint" id="pickHint">คลิกบนแผนที่เพื่อปักตำแหน่งที่พบนก</div>
+
+    <!-- ---------- 3D stage ---------- -->
+    <div class="map-viewport" id="mapViewport">
+
+      <!-- real map (MapLibre GL + CARTO basemap, no API key) -->
+      <div id="glmap"></div>
+
+      <!-- offline fallback: hand-drawn vector park -->
+      <div class="stage-svg" id="stageSvg">
+      <div class="map-world" id="mapWorld">
+
+        <!-- ground: park plate, grass, buildings -->
+        <div class="mlayer l-ground">
+          <svg viewBox="0 0 1000 1000" id="svgGround">
+            <defs>
+              <linearGradient id="grass" x1="0" y1="0" x2="0.3" y2="1">
+                <stop offset="0"   stop-color="#2E5B32"/>
+                <stop offset="0.55" stop-color="#244B29"/>
+                <stop offset="1"   stop-color="#1B3A21"/>
+              </linearGradient>
+              <radialGradient id="glow" cx=".5" cy=".45" r=".62">
+                <stop offset="0" stop-color="#3E7A42" stop-opacity=".55"/>
+                <stop offset="1" stop-color="#3E7A42" stop-opacity="0"/>
+              </radialGradient>
+            </defs>
+            <!-- park plate -->
+            <g class="plate">
+              <path id="parkPath" fill="url(#grass)" stroke="#7FC48A" stroke-width="2.5" stroke-opacity=".55"
+                d="M243,214 C230,180 244,140 276,116 L330,74 C352,58 378,50 404,50
+                   L516,44 C548,42 578,50 604,66 L700,124 C726,140 748,162 762,190
+                   L800,266 C816,300 818,338 806,372 L780,444 C770,472 752,496 728,514
+                   L648,574 C630,588 616,606 608,626 L570,724 C558,756 536,782 506,798
+                   L432,838 C404,854 372,858 342,850 L272,830 C240,820 214,798 200,768
+                   L172,706 C158,676 156,642 166,610 L196,516 C204,490 204,462 196,436 Z"/>
+              <path fill="url(#glow)" d="M243,214 C230,180 244,140 276,116 L330,74 C352,58 378,50 404,50
+                   L516,44 C548,42 578,50 604,66 L700,124 C726,140 748,162 762,190
+                   L800,266 C816,300 818,338 806,372 L780,444 C770,472 752,496 728,514
+                   L648,574 C630,588 616,606 608,626 L570,724 C558,756 536,782 506,798
+                   L432,838 C404,854 372,858 342,850 L272,830 C240,820 214,798 200,768
+                   L172,706 C158,676 156,642 166,610 L196,516 C204,490 204,462 196,436 Z"/>
+              <!-- open lawns -->
+              <g fill="#376B3A" fill-opacity=".55">
+                <ellipse cx="330" cy="230" rx="66" ry="52"/>
+                <ellipse cx="560" cy="170" rx="86" ry="46"/>
+                <ellipse cx="646" cy="330" rx="58" ry="66"/>
+                <ellipse cx="330" cy="690" rx="72" ry="56"/>
+                <ellipse cx="470" cy="470" rx="54" ry="40"/>
+              </g>
+              <!-- buildings / facilities -->
+              <g id="bld" fill="#C9CFC0" fill-opacity=".9">
+                <rect x="236" y="386" width="34" height="22" rx="3"/>
+                <rect x="606" y="196" width="46" height="26" rx="3"/>
+                <rect x="700" y="286" width="26" height="34" rx="3"/>
+                <rect x="382" y="742" width="40" height="24" rx="3"/>
+                <rect x="322" y="112" width="52" height="22" rx="3"/>
+                <rect x="556" y="486" width="30" height="20" rx="3"/>
+              </g>
+            </g>
+          </svg>
+        </div>
+
+        <!-- water -->
+        <div class="mlayer l-water" data-layer="water">
+          <svg viewBox="0 0 1000 1000">
+            <defs>
+              <linearGradient id="wtr" x1="0" y1="0" x2=".4" y2="1">
+                <stop offset="0" stop-color="#3E8FB0"/><stop offset="1" stop-color="#1E5B78"/>
+              </linearGradient>
+            </defs>
+            <g fill="url(#wtr)" stroke="#8FD6EE" stroke-width="1.6" stroke-opacity=".5">
+              <path d="M596,120 C650,108 712,132 726,170 C740,208 706,244 654,250 C602,256 560,232 556,196 C552,162 566,127 596,120Z"/>
+              <path d="M726,352 C762,346 786,372 780,400 C774,428 742,442 716,430 C690,418 686,382 700,366Z"/>
+              <path d="M262,596 C300,580 348,596 356,628 C364,660 336,688 298,690 C260,692 234,668 234,640 C234,616 242,604 262,596Z"/>
+              <ellipse cx="470" cy="640" rx="38" ry="26"/>
+              <ellipse cx="392" cy="330" rx="26" ry="19"/>
+              <ellipse cx="646" cy="480" rx="30" ry="21"/>
+              <ellipse cx="300" cy="470" rx="22" ry="16"/>
+              <ellipse cx="536" cy="290" rx="24" ry="17"/>
+            </g>
+          </svg>
+        </div>
+
+        <!-- paths + bike loop -->
+        <div class="mlayer l-paths">
+          <svg viewBox="0 0 1000 1000">
+            <g fill="none" stroke="#E7EDE0" stroke-opacity=".55" stroke-width="4.5" stroke-linecap="round">
+              <path d="M300,120 C340,200 300,300 250,400 C210,486 210,570 250,660 C290,750 350,810 420,834"/>
+              <path d="M520,52 C540,150 560,240 620,300 C680,360 740,380 780,400"/>
+              <path d="M240,420 C330,430 420,470 500,470 C580,470 650,430 728,420"/>
+              <path d="M420,834 C470,760 520,690 560,620 C600,550 640,520 720,510"/>
+              <path d="M330,690 C400,650 470,640 540,660"/>
+            </g>
+          </svg>
+        </div>
+
+        <!-- zones -->
+        <div class="mlayer l-zones">
+          <svg viewBox="0 0 1000 1000" id="svgZones"></svg>
+        </div>
+
+        <!-- heatmap -->
+        <div class="mlayer l-heat" data-layer="heat">
+          <canvas id="heatCanvas" width="500" height="500" style="width:1000px;height:1000px"></canvas>
+        </div>
+
+        <!-- 3D canopy -->
+        <div class="mlayer l-canopy" data-layer="canopy" id="canopyLayer"></div>
+
+        <!-- survey markers -->
+        <div class="mlayer l-marks" id="markLayer"></div>
+      </div>
+      </div>
+
+      <div class="map-boot" id="mapBoot">กำลังโหลดแผนที่จริง…</div>
+    </div>
+
+    <!-- ---------- control rail ---------- -->
+    <aside class="map-rail" id="mapRail">
+      <div class="rail-tabs">
+        <button class="on" data-tab="birds">นกที่พบ</button>
+        <button data-tab="filters">ตัวกรอง</button>
+      </div>
+      <p class="eb-badge" id="ebBadge">กำลังดึงข้อมูลจาก eBird…</p>
+      <p class="eb-badge" id="osmBadge">กำลังดึงขอบเขตสวนจาก OpenStreetMap…</p>
+
+      <div class="rail-scroll">
+
+      <!-- ---- species picker ---- -->
+      <div class="tabpane on" id="paneBirds">
+        <div class="zsel" id="zoneChips"></div>
+        <p class="zname" id="zoneName">ทั้งสวน · ทุกโซน</p>
+        <div class="searchbox">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+            <circle cx="11" cy="11" r="7"/><path d="M20 20l-4.3-4.3" stroke-linecap="round"/>
+          </svg>
+          <input type="search" id="spSearch" placeholder="ค้นหาชื่อนก ไทย / อังกฤษ" autocomplete="off">
+        </div>
+        <p class="rail-h">นกที่พบ <span id="spCount" style="color:#BFE8C4"></span></p>
+        <div class="sp-grid" id="spGrid"></div>
+      </div>
+
+      <!-- ---- filters ---- -->
+      <div class="tabpane" id="paneFilters">
+      <p class="rail-h" style="margin-top:0">แหล่งข้อมูลจำนวนนก</p>
+      <div class="seg" id="srcSeg">
+        <button data-src="range" class="on">1 ม.ค. – 5 ส.ค.</button>
+        <button data-src="ours">3 วันของเรา</button>
+      </div>
+
+      <p class="rail-h">กลุ่มนก</p>
+      <div class="chipset" id="groupChips"></div>
+
+      <p class="rail-h">ช่วงเวลา</p>
+      <div class="seg" id="timeSeg">
+        <button data-t="dawn" class="on">เช้าตรู่</button>
+        <button data-t="day">กลางวัน</button>
+        <button data-t="dusk">เย็น</button>
+      </div>
+
+      <p class="rail-h">ฤดูกาล</p>
+      <div class="seg" id="seasonSeg">
+        <button data-s="wet" class="on">ฝน</button>
+        <button data-s="cool">หนาว</button>
+        <button data-s="hot">ร้อน</button>
+      </div>
+
+      <p class="rail-h gl-only">สไตล์แผนที่</p>
+      <div class="seg" id="styleSeg">
+        <button data-st="dark" class="on">มืด</button>
+        <button data-st="voyager">สี</button>
+        <button data-st="light">สว่าง</button>
+      </div>
+
+      <p class="rail-h">เลเยอร์</p>
+      <div class="chipset" id="layerChips">
+        <button class="tog on" data-layer="heat"><span class="sw"></span>Heatmap</button>
+        <button class="tog on" data-layer="gps"><span class="sw"></span>ตำแหน่งจริง (GPS)</button>
+        <button class="tog on" data-layer="spots"><span class="sw"></span>จุดคาดการณ์</button>
+        <button class="tog on" data-layer="zones"><span class="sw"></span>ขอบเขตโซน</button>
+        <button class="tog on" data-layer="park"><span class="sw"></span>ขอบเขตสวน</button>
+        <button class="tog on" data-layer="canopy"><span class="sw"></span>เรือนยอด</button>
+        <button class="tog on" data-layer="bld"><span class="sw"></span>อาคาร 3D</button>
+        <button class="tog on" data-layer="labels"><span class="sw"></span>ป้ายชื่อ</button>
+        <button class="tog on" data-layer="water"><span class="sw"></span>แหล่งน้ำ</button>
+      </div>
+
+      <p class="rail-h">ปรับ Heatmap</p>
+      <div class="rng"><label>ความเข้ม</label><input type="range" id="rOpacity" min="20" max="100" value="82"><em id="vOpacity">82</em></div>
+      <div class="rng"><label>รัศมี</label><input type="range" id="rRadius" min="14" max="60" value="34"><em id="vRadius">34</em></div>
+      <div class="rng"><label>เกณฑ์ต่ำสุด</label><input type="range" id="rFloor" min="0" max="60" value="8"><em id="vFloor">8</em></div>
+
+      <p class="rail-h">มุมกล้อง</p>
+      <div class="rng"><label>เอียง</label><input type="range" id="rTilt" min="0" max="68" value="46"><em id="vTilt">46°</em></div>
+      <div class="rng"><label>หมุน</label><input type="range" id="rRot" min="-180" max="180" value="0"><em id="vRot">0°</em></div>
+      <div class="rng"><label>ซูม</label><input type="range" id="rZoom" min="55" max="220" value="88"><em id="vZoom">.88</em></div>
+      </div>
+      </div>
+    </aside>
+
+    <!-- ---------- bottom bar: legend + camera controls ---------- -->
+    <div class="map-bottom">
+      <div class="map-legend">
+        <small>เบาบาง</small>
+        <div class="bar"></div>
+        <small>หนาแน่น</small>
+      </div>
+      <div class="map-hud">
+      <button class="hbtn compass" id="btnCompass" title="หันกลับทิศเหนือ">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path d="M12 2v20M12 2l4 7h-8z" fill="#E8743B" stroke="none"/>
+          <path d="M12 22l-4-7h8z" fill="#fff" stroke="none"/>
+        </svg>
+      </button>
+      <button class="hbtn wide on" id="btn3d">3D</button>
+      <button class="hbtn" id="btnIn">+</button>
+      <button class="hbtn" id="btnOut">−</button>
+      <button class="hbtn wide" id="btnReset">รีเซ็ต</button>
+      </div>
+    </div>
+
+    <!-- ---------- info card ---------- -->
+    <div class="map-card" id="mapCard" style="--zc:#4CA555">
+
+      <!-- zone view -->
+      <div class="zone-card" id="zoneCard">
+        <h3><span class="zdot"></span><span id="cTitle">ทั้งสวน</span></h3>
+        <p class="sub" id="cSub">All zones</p>
+        <div class="bignum"><b id="cDens">0</b><span>ตัว<small><span id="cSpN">0</span> ชนิด · 26 ก.ค. – 4 ส.ค.</small></span></div>
+        <div class="glist" id="cGroups"></div>
+        <div class="env" id="cEnv"></div>
+        <p class="note" id="cNote"></p>
+      </div>
+
+      <!-- species view -->
+      <div class="sp-card" id="spCard">
+        <div class="sp-hero" id="spHero">
+          <img id="spImg" alt="">
+          <span class="cred" id="spCred"></span>
+        </div>
+        <p class="sp-th" id="spTh"></p>
+        <p class="sp-en" id="spEn"></p>
+        <p class="sp-sci" id="spSci"></p>
+
+        <p class="sp-sec">พฤติกรรม · Behaviour</p>
+        <p class="sp-body" id="spBeh"></p>
+
+        <p class="sp-sec">พบที่ไหนในสวน · Where on the map</p>
+        <div class="sp-zones" id="spZones"></div>
+        <div class="hablist" id="spHab"></div>
+        <p class="sp-body" id="spWhere" style="margin-top:10px"></p>
+
+        <p class="sp-sec">จำนวนที่บันทึกได้ · eBird</p>
+        <div class="bignum"><b id="spFreqN">0</b><span>ตัว<small id="spPeriod"></small></span></div>
+        <div class="eb big"><u id="spFreq"></u></div>
+        <div class="zonen" id="spEbStat"></div>
+        <p class="sp-sec">แบ่งตามโซนที่พวกเราพบ</p>
+        <div class="zonen" id="spZoneN"></div>
+
+        <button class="sp-back" id="spBack">← กลับไปดูทั้งโซน</button>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<div class="lightbox" id="lightbox">
+  <img id="lbImg" alt="">
+  <p id="lbCap"></p>
+</div>
+
+<script>
+(function(){
+'use strict';
+const $  = (s,c)=> (c||document).querySelector(s);
+const $$ = (s,c)=> Array.from((c||document).querySelectorAll(s));
+const rand = (a,b)=> a + Math.random()*(b-a);
+const isMobile = ()=> window.matchMedia('(max-width:900px)').matches;
+
+/* ---- 8.1 bird groups ---- */
+const GROUPS = {
+  water  :{name:'นกน้ำ',        c:'#4FB3D9'},
+  insect :{name:'นกกินแมลง',    c:'#9BCB3B'},
+  raptor :{name:'นกล่าเหยื่อ',   c:'#E8743B'},
+  urban  :{name:'นกเมือง',      c:'#E3C04A'},
+  migrant:{name:'นกอพยพ',      c:'#B07FD9'}
+};
+/* ตัวคูณตามช่วงเวลา / ฤดูกาล */
+const TIME_MUL   = {
+  dawn:{water:1.15,insect:1.35,raptor:.75,urban:1.0 ,migrant:1.25},
+  day :{water:1.0 ,insect:.75 ,raptor:.45,urban:1.3 ,migrant:.70},
+  dusk:{water:1.25,insect:.95 ,raptor:1.6,urban:.85,migrant:1.05}
+};
+const SEASON_MUL = {
+  wet :{water:1.25,insect:1.30,raptor:.90,urban:1.0,migrant:.55},
+  cool:{water:1.15,insect:1.00,raptor:1.10,urban:1.0,migrant:1.60},
+  hot :{water:.85 ,insect:.80 ,raptor:1.0,urban:1.15,migrant:.45}
+};
+
+/* ---- 8.2 zones (ตามแผนที่ที่วาดไว้) ---- */
+const ZONES = [
+  { id:'A', name:'โซนป่าชายเลน', en:'Mangrove-style woodland', c:'#5FBF6A',
+    poly:'250,222 300,112 404,52 520,46 540,160 512,300 436,412 262,428',
+    lx:382, ly:238,
+    groups:{insect:82, migrant:46, raptor:34, water:22, urban:18},
+    spots:[[352,168,1.0],[430,110,.75],[300,300,.85],[470,330,.7],[392,240,.9]],
+    env:{water:38, canopy:92, bike:74, people:26},
+    note:'เรือนยอดปิดและพุ่มไม้หนา ทำให้เป็นชั้นที่นกกินแมลงและนกอพยพเลือกลงพัก มากกว่าโซนอื่นอย่างชัดเจน'
+  },
+  { id:'B', name:'โซนปั่นเป็ด', en:'Pedal-boat lake', c:'#4FB3D9',
+    poly:'520,46 604,66 700,124 762,190 800,266 810,340 790,424 736,470 640,470 560,380 536,240',
+    lx:664, ly:250,
+    groups:{water:96, migrant:52, insect:34, urban:40, raptor:20},
+    spots:[[640,180,1.0],[712,240,.9],[700,382,.8],[590,150,.7],[746,320,.65]],
+    env:{water:98, canopy:34, bike:52, people:64},
+    note:'บึงเปิดกลางโซนเป็นแหล่งอาหารหลักของนกน้ำ ความหนาแน่นสูงสุดอยู่ริมน้ำที่ห่างจากจุดปั่นเป็ด'
+  },
+  { id:'C', name:'โซนเมืองจราจร', en:'Traffic-model town', c:'#E3C04A',
+    poly:'262,428 436,412 470,520 520,640 500,760 432,838 342,850 240,800 172,700 168,600 200,470',
+    lx:326, ly:658,
+    groups:{urban:88, insect:44, water:36, raptor:16, migrant:20},
+    spots:[[300,640,1.0],[386,760,.8],[240,560,.7],[430,560,.6],[330,700,.9]],
+    env:{water:44, canopy:40, bike:22, people:94},
+    note:'คนพลุกพล่านและอยู่ติดเลนจักรยาน จึงเหลือแต่นกที่ทนการรบกวนได้ ความหลากหลายต่ำที่สุดในสวน'
+  },
+  { id:'D', name:'โซนอุทยานผีเสื้อ', en:'Butterfly garden', c:'#B07FD9',
+    poly:'436,412 560,380 640,470 736,470 728,514 648,574 608,626 570,724 512,700 486,600 470,520',
+    lx:592, ly:534,
+    groups:{insect:90, raptor:58, urban:36, water:30, migrant:38},
+    spots:[[600,500,1.0],[660,520,.95],[540,600,.8],[690,486,.7],[566,466,.75]],
+    env:{water:56, canopy:78, bike:60, people:48},
+    note:'แมลงชุกชุมจากแปลงพืชอาหาร ดึงนกกินแมลงเข้ามา และดึงนกเค้าตามมาอีกชั้นหนึ่ง — จุดสำรวจสุขา 2 พบนกเค้าแมวประจำ'
+  }
+];
+
+/* ---- 8.2b micro-habitat anchors ----------------------------------------
+   จุดย่อยในแต่ละโซน แยกตามชนิดของถิ่นอาศัย
+   ใช้วางตำแหน่งนกตามพฤติกรรมจริง แทนที่จะสุ่มทั่วโซน
+   water = ริมน้ำ · canopy = เรือนยอดไม้ใหญ่ · lawn = สนามหญ้าเปิด
+   scrub = พุ่มไม้/หญ้าสูง · path = ทางเดินและลานที่คนใช้
+   ------------------------------------------------------------------------ */
+const HAB = {
+  A:{ water :[[392,330],[300,246],[440,352]],
+      canopy:[[330,180],[432,122],[298,300],[476,296]],
+      lawn  :[[362,232],[468,182],[386,268]],
+      scrub :[[282,382],[502,104],[336,398],[262,318]],
+      path  :[[306,126],[442,402]] },
+  B:{ water :[[640,182],[726,382],[678,244],[600,150]],
+      canopy:[[604,118],[702,300],[762,244]],
+      lawn  :[[562,172],[680,420],[742,318]],
+      scrub :[[612,242],[772,332],[648,412]],
+      path  :[[592,88],[700,444]] },
+  C:{ water :[[296,640],[252,704]],
+      canopy:[[222,502],[402,802],[286,470]],
+      lawn  :[[332,700],[430,562],[264,600]],
+      scrub :[[202,622],[462,604],[350,780]],
+      path  :[[300,646],[386,762],[248,540],[420,686]] },
+  D:{ water :[[646,480],[566,468],[604,540]],
+      canopy:[[662,520],[692,486],[520,470]],
+      lawn  :[[522,562],[622,602]],
+      scrub :[[600,502],[540,602],[576,700],[648,556]],
+      path  :[[582,662],[500,600]] }
+};
+/* ความชอบถิ่นอาศัยของแต่ละชนิด (0–1) */
+const PREF = {
+  'javan-pond-heron'       :{water:1.0, scrub:.35},
+  'white-breasted-waterhen':{water:1.0, scrub:.75},
+  'spotted-owlet'          :{canopy:1.0, path:.30},
+  'collared-scops-owl'     :{canopy:1.0, scrub:.45},
+  'stork-billed-kingfisher':{water:1.0, canopy:.45},
+  'indian-roller'          :{lawn:.85, canopy:.65, path:.50},
+  'coppersmith-barbet'     :{canopy:1.0},
+  'olive-backed-sunbird'   :{scrub:1.0, canopy:.55},
+  'oriental-magpie-robin'  :{lawn:.85, path:.70, scrub:.50},
+  'yellow-vented-bulbul'   :{scrub:.95, canopy:.60, path:.40},
+  'pied-fantail'           :{scrub:.95, water:.65},
+  'plain-prinia'           :{scrub:1.0},
+  'baya-weaver'            :{scrub:1.0, water:.45},
+  'asian-koel-female'      :{canopy:1.0},
+  'large-billed-crow'      :{path:1.0, lawn:.70, canopy:.50},
+  'common-myna'            :{lawn:1.0, path:.90},
+  'white-vented-myna'      :{lawn:1.0, path:.60},
+  'black-collared-starling':{lawn:1.0, canopy:.45},
+  'asian-openbill'         :{water:1.0, lawn:.35},
+  'striated-heron'         :{water:1.0},
+  'cattle-egret'           :{lawn:1.0, water:.45},
+  'greater-coucal'         :{scrub:1.0, path:.35},
+  'zebra-dove'             :{path:.90, lawn:.85},
+  'rock-pigeon'            :{path:1.0, lawn:.60},
+  'spotted-dove'           :{lawn:.90, path:.70, scrub:.40},
+  'asian-palm-swift'       :{canopy:.70, lawn:.55}
+};
+const HAB_TH = {water:'ริมน้ำ', canopy:'เรือนยอดไม้ใหญ่', lawn:'สนามหญ้าเปิด',
+                scrub:'พุ่มไม้และหญ้าสูง', path:'ทางเดินและลานคน'};
+
+/* ---- 8.3 species catalogue ----------------------------------------------
+   รูปทั้งหมดถ่ายเองในสวนรถไฟ · ระบุชนิดจากภาพถ่าย
+   ข้อมูลพฤติกรรมและช่วงเวลาที่พบ ประกอบกับฐานข้อมูล eBird
+   f = ความถี่ที่พบ (0-100) · zones = โซนที่บันทึกไว้
+   ------------------------------------------------------------------------ */
+const SPECIES = [
+ {id:'javan-pond-heron', th:'นกยางกรอกพันธุ์ชวา', en:'Javan Pond Heron', sci:'Ardeola speciosa',
+  g:'water', z:['A'], f:22, img:'javan-pond-heron', shot:'ชุดขนฤดูผสมพันธุ์ · ริมบึงโซน A',
+  beh:'ยืนนิ่งเป็นรูปปั้นอยู่ริมน้ำ รอจนปลาหรือกบเข้ามาใกล้แล้วแทงลงในเสี้ยววินาที ชุดขนฤดูผสมพันธุ์หัวและคอจะเปลี่ยนเป็นน้ำตาลอ่อน หลังสีเทาม่วง พอบินขึ้นปีกสีขาวสว่างจะตัดกับลำตัวจนดูเหมือนคนละตัว',
+  where:'ขอบบึงและพื้นที่ชุ่มน้ำในโซนป่าชายเลน มักอยู่ตรงรอยต่อระหว่างพงหญ้ากับผิวน้ำ ไม่ค่อยออกมาที่โล่ง'},
+
+ {id:'white-breasted-waterhen', th:'นกกวัก', en:'White-breasted Waterhen', sci:'Amaurornis phoenicurus',
+  g:'water', z:['A','B','D'], f:28, img:'white-breasted-waterhen', shot:'เดินหากินริมคลองในสวน',
+  beh:'ขี้อายมาก เดินย่องตามพงหญ้าริมน้ำ พอตกใจจะวิ่งหลบเข้าพุ่มแทนที่จะบิน ส่วนใหญ่ได้ยินเสียงร้อง “กวัก ๆ” ดังก้องตอนเช้าและพลบค่ำมากกว่าจะได้เห็นตัว',
+  where:'ริมน้ำทุกโซนที่มีพงหญ้ารก พบบ่อยที่สุดตรงคลองเชื่อมระหว่างโซน A กับ D'},
+
+ {id:'spotted-owlet', th:'นกเค้าจุด', en:'Spotted Owlet', sci:'Athene brama',
+  g:'raptor', z:['A','C'], f:9, img:'spotted-owlet', shot:'เกาะคาคบตอนกลางวัน',
+  beh:'นกเค้าที่ตื่นกลางวันได้ จึงเป็นชนิดที่คนเจอง่ายที่สุดในสวน อยู่เป็นคู่หรือกลุ่มครอบครัว เกาะนิ่งบนคาคบหรือปากโพรงไม้ ล่าแมลงตัวใหญ่ หนู และจิ้งจก การมีมันอยู่แปลว่าฐานอาหารในสวนยังสมบูรณ์',
+  where:'ต้นไม้ใหญ่ที่มีโพรงในโซน A และแนวไม้ริมเมืองจราจรจำลองโซน C'},
+
+ {id:'collared-scops-owl', th:'นกเค้ากู่', en:'Collared Scops Owl', sci:'Otus lettia',
+  g:'raptor', z:['B'], f:4, img:'collared-scops-owl', shot:'ซ่อนตัวในทางปาล์ม',
+  beh:'มีขนหูสองข้างตั้งขึ้นเวลาระแวง กลางวันเกาะนิ่งซ่อนในทางปาล์มจนลายขนกลืนกับเปลือกไม้แทบมองไม่เห็น ออกล่าแมลงและสัตว์เล็กหลังพระอาทิตย์ตก เสียงร้อง “กู่” นุ่มทุ้มเป็นจังหวะเดียว',
+  where:'ดงปาล์มและไม้พุ่มทึบฝั่งโซนปั่นเป็ด ต้องยืนนิ่งมองนาน ๆ ถึงจะเจอ'},
+
+ {id:'stork-billed-kingfisher', th:'นกกระเต็นใหญ่ธรรมดา', en:'Stork-billed Kingfisher', sci:'Pelargopsis capensis',
+  g:'water', z:['B','C','D'], f:12, img:'stork-billed-kingfisher', shot:'เฝ้าเหนือบึงโซน B',
+  beh:'ปากแดงใหญ่โดดเด่นที่สุดในกลุ่มนกกระเต็น เกาะนิ่งบนกิ่งเหนือน้ำได้นานมากก่อนพุ่งลงจับปลา เสียงร้องแหลมดังก้องทั้งบึง การที่มันอยู่ได้แปลว่าน้ำยังใสพอมองเห็นเหยื่อและมีปลาต่อเนื่อง',
+  where:'กิ่งไม้ยื่นเหนือบึงใหญ่โซน B และบ่อน้ำโซน D — เป็นตัวชี้วัดคุณภาพน้ำที่ดีที่สุดในสวน'},
+
+ {id:'indian-roller', th:'นกตะขาบทุ่ง', en:'Indian Roller', sci:'Coracias benghalensis',
+  g:'insect', z:['A','B','C','D'], f:35, img:'indian-roller', shot:'เกาะกิ่งโล่งจ้องเหยื่อ',
+  beh:'เกาะสายไฟหรือกิ่งโล่ง จ้องพื้นแล้วโฉบลงจับแมลงใหญ่ ตั๊กแตน และจิ้งจก เวลาบินจะเห็นแถบสีฟ้าสองเฉดบนปีกสว่างวาบ ช่วงจับคู่จะบินตีลังกากลางอากาศจนเป็นที่มาของชื่อ roller',
+  where:'พบได้ทั่วสวนตรงที่มีทุ่งหญ้าเปิดติดกับแนวต้นไม้ ชอบเกาะจุดสูงที่มองเห็นพื้นโล่ง'},
+
+ {id:'coppersmith-barbet', th:'นกตีทอง', en:'Coppersmith Barbet', sci:'Psilopogon haemacephalus',
+  g:'insect', z:['C'], f:19, img:'coppersmith-barbet', shot:'บนกิ่งแห้งโซน C',
+  beh:'ร้อง “ต๊ง ๆ ๆ” เป็นจังหวะสม่ำเสมอทั้งวันเหมือนช่างเคาะทองแดง จึงได้ชื่อนี้ ตัวสีเขียวกลืนไปกับใบไม้จนหายาก มีแต้มแดงบนหน้าผากและอก เจาะโพรงทำรังเองในกิ่งไม้ผุ',
+  where:'ต้นไม้ยืนต้นตายและกิ่งแห้งรอบเมืองจราจรจำลอง — ฟังเสียงหาง่ายกว่ามองหา'},
+
+ {id:'olive-backed-sunbird', th:'นกกินปลีอกเหลือง', en:'Olive-backed Sunbird', sci:'Cinnyris jugularis',
+  g:'insect', z:['A','B','D'], f:43, img:'olive-backed-sunbird', shot:'ตัวผู้ชุดเต็มวัย',
+  beh:'ตัวเล็กจิ๋วแต่ว่องไวมาก บินนิ่งอยู่กับที่เพื่อดูดน้ำหวานจากดอกไม้ ตัวผู้มีแถบคอสีน้ำเงินม่วงเหลือบที่เห็นเฉพาะตอนแสงตกกระทบมุมที่ใช่ ตัวเมียสร้างรังห้อยรูปหยดน้ำจากใยแมงมุมและเส้นใยพืช',
+  where:'แปลงไม้ดอกรอบอุทยานผีเสื้อโซน D และพุ่มไม้ดอกทั่วโซน A กับ B'},
+
+ {id:'oriental-magpie-robin', th:'นกกางเขน', en:'Oriental Magpie-Robin', sci:'Copsychus saularis',
+  g:'insect', z:['A','B','C','D'], f:66, img:'oriental-magpie-robin', shot:'หากินบนพื้นโล่ง',
+  beh:'นักร้องประจำสวน ส่งเสียงเพลงซับซ้อนตั้งแต่ฟ้ายังไม่สว่าง กระดกหางขึ้นลงตลอดเวลาที่เดินหาแมลงบนพื้น ตัวผู้ดำขาวตัดกันชัด ตัวเมียสีเทาอมน้ำตาล หวงถิ่นและไล่นกตัวอื่นออกจากเขตตัวเอง',
+  where:'ทั่วทั้งสวน โดยเฉพาะขอบสนามหญ้าที่ติดกับพุ่มไม้ — เป็นนกที่เจอง่ายที่สุดชนิดหนึ่ง'},
+
+ {id:'yellow-vented-bulbul', th:'นกปรอทหน้านวล', en:'Yellow-vented Bulbul', sci:'Pycnonotus goiavier',
+  g:'insect', z:['B'], f:58, img:'yellow-vented-bulbul', shot:'เกาะกิ่งริมทางเดิน',
+  beh:'หน้าขาวนวลมีขีดดำผ่านตา ก้นสีเหลืองสด กินทั้งผลไม้สุกและแมลง ส่งเสียงร้องสดใสเป็นชุดตลอดวัน อยู่รวมกลุ่มเล็ก ๆ และปรับตัวกับสวนในเมืองได้ดีมาก',
+  where:'พุ่มไม้ผลและแนวรั้วต้นไม้ตลอดเส้นทางปั่นจักรยานโซน B'},
+
+ {id:'pied-fantail', th:'นกอีแพรดแถบอกดำ', en:'Malaysian Pied Fantail', sci:'Rhipidura javanica',
+  g:'insect', z:['B'], f:16, img:'pied-fantail', shot:'บนขอนไม้ริมน้ำ',
+  beh:'แผ่หางเป็นรูปพัดแล้วส่ายไปมาไม่หยุด เพื่อไล่แมลงให้ตกใจบินขึ้นมาแล้วโฉบจับกลางอากาศ ไม่ค่อยอยู่นิ่ง เคลื่อนที่ตลอดเวลาในพุ่มไม้ระดับต่ำใกล้แหล่งน้ำ',
+  where:'พุ่มไม้เตี้ยและขอนไม้ริมบึงโซน B ชอบที่ร่มชื้นที่มีแมลงชุม'},
+
+ {id:'plain-prinia', th:'นกกระจิบหญ้าสีเรียบ', en:'Plain Prinia', sci:'Prinia inornata',
+  g:'insect', z:['A'], f:14, img:'plain-prinia', shot:'เกาะยอดหญ้าสูง',
+  beh:'ตัวเล็กหางยาวชี้ขึ้น เกาะยอดหญ้าสูงแล้วส่งเสียงรัวเป็นจังหวะถี่ กินแมลงเล็กในทุ่งหญ้า ทำรังสานใบหญ้าเข้าด้วยกันเป็นกระเปาะ อยู่เฉพาะพื้นที่หญ้ารกที่ไม่ถูกตัด',
+  where:'ทุ่งหญ้าสูงที่ปล่อยรกในโซน A — ถ้าหญ้าถูกตัดสั้นเมื่อไหร่ นกกลุ่มนี้จะหายไปทันที'},
+
+ {id:'asian-koel-female', th:'นกกาเหว่าลาย', en:'Asian Koel (female)', sci:'Eudynamys scolopaceus',
+  g:'migrant', z:['B'], f:13, img:'asian-koel-female', shot:'ตัวเมียลายพาดทั้งตัว',
+  beh:'ตัวเมียมีลายพาดขาวดำทั้งตัว ต่างจากตัวผู้ที่ดำสนิทตาแดง วางไข่ทิ้งไว้ในรังนกอีกาให้เลี้ยงลูกแทน จึงมักพบในบริเวณเดียวกับที่มีอีกาทำรัง เสียงร้อง “กา-เหว่า” ดังขึ้นเรื่อย ๆ ช่วงต้นฤดูฝน',
+  where:'เรือนยอดไม้ใหญ่โซน B ที่มีรังอีกาอยู่ — ความสัมพันธ์ของสองชนิดนี้ผูกกันแน่น'},
+
+ {id:'large-billed-crow', th:'นกอีกา', en:'Large-billed Crow', sci:'Corvus macrorhynchos',
+  g:'urban', z:['B','C','D'], f:96, img:'large-billed-crow', shot:'หากินบนพื้นในสวน',
+  beh:'ฉลาดที่สุดชนิดหนึ่งในสวน จำหน้าคนได้ ใช้เครื่องมือเป็น และรวมกลุ่มไล่นกล่าเหยื่อที่ใหญ่กว่า กินได้แทบทุกอย่าง ที่ไหนมีถังขยะหรือเศษอาหาร จะพบประชากรหนาแน่นผิดธรรมชาติที่นั่น',
+  where:'หนาแน่นที่สุดรอบจุดที่คนนั่งกินอาหารและถังขยะ — เป็นตัวชี้วัดปริมาณขยะในพื้นที่โดยตรง'},
+
+ {id:'common-myna', th:'นกเอี้ยงสาริกา', en:'Common Myna', sci:'Acridotheres tristis',
+  g:'urban', z:['A','B','C','D'], f:186, img:'common-myna', shot:'เดินหากินบนสนามหญ้า',
+  beh:'ปรับตัวเข้ากับคนได้ดีที่สุดในบรรดานกทั้งหมด เดินหากินแมลงและเศษอาหารบนสนามหญ้า แผ่นหนังเปลือยสีเหลืองรอบตาเป็นจุดสังเกตชัดเจน จับคู่ตลอดชีวิตและหวงรังมาก',
+  where:'ทุกโซน โดยเฉพาะสนามหญ้าเปิดที่ตัดสั้นและลานกิจกรรมที่มีคนพลุกพล่าน'},
+
+ {id:'white-vented-myna', th:'นกเอี้ยงหงอน', en:'White-vented Myna', sci:'Acridotheres grandis',
+  g:'urban', z:['A','B','C','D'], f:88, img:'white-vented-myna', shot:'หากินตามทุ่งหญ้าเปิด',
+  beh:'มีหงอนขนสั้นตั้งบนหน้าผากเป็นเอกลักษณ์ ก้นสีขาวเห็นชัดตอนบิน เดินหากินแมลงตามทุ่งหญ้าเปิดเป็นฝูงเล็ก มักเดินตามหลังเครื่องตัดหญ้าเพื่อจับแมลงที่ตกใจบินขึ้น',
+  where:'สนามหญ้าเปิดทุกโซน ชอบเดินตามหลังรถตัดหญ้าและฝูงคนออกกำลังกาย'},
+
+ {id:'black-collared-starling', th:'นกกิ้งโครงคอดำ', en:'Black-collared Starling', sci:'Gracupica nigricollis',
+  g:'urban', z:['B','D'], f:24, img:'black-collared-starling', shot:'คู่หนึ่งบนพื้นหญ้า',
+  beh:'ตัวใหญ่ที่สุดในกลุ่มกิ้งโครง แถบคอสีดำหนาและวงหนังเปลือยสีเหลืองรอบตาเป็นจุดสังเกต เดินหากินเป็นคู่บนพื้นหญ้า สร้างรังทรงกลมขนาดใหญ่บนยอดไม้สูงที่มองเห็นได้จากไกล',
+  where:'สนามหญ้าเปิดโซน B และ D มักเห็นรังทรงกลมใหญ่บนยอดไม้ริมทางเดิน'},
+
+ {id:'asian-openbill', th:'นกปากห่าง', en:'Asian Openbill', sci:'Anastomus oscitans',
+  g:'water', z:['A','B'], f:47, img:'asian-openbill', shot:'ระยะใกล้เห็นช่องว่างของปาก',
+  beh:'ปากบนกับปากล่างมีช่องว่างตรงกลาง วิวัฒนาการมาเพื่อคีบและงัดเปลือกหอยเชอรี่โดยเฉพาะ ช่วงสายจะกางปีกร่อนวนตามกระแสลมร้อนขึ้นสูงเป็นฝูงโดยแทบไม่กระพือปีกเลย',
+  where:'พื้นที่ชุ่มน้ำและบึงตื้นโซน A กับ B ที่มีหอยเชอรี่ชุกชุม'},
+
+ {id:'striated-heron', th:'นกยางเขียว', en:'Striated Heron', sci:'Butorides striata',
+  g:'water', z:['D'], f:6, img:'striated-heron', shot:'หมอบบนขอนไม้เหนือน้ำ',
+  beh:'ตัวเล็กคอสั้น หมอบนิ่งต่ำบนขอนไม้เหนือน้ำเป็นเวลานานจนกลืนกับฉากหลัง แล้วพุ่งจู่โจมเร็วมาก บางประชากรฉลาดถึงขั้นโยนใบไม้หรือแมลงลงน้ำเพื่อล่อปลาขึ้นมา',
+  where:'ขอนไม้และตลิ่งร่มริมบ่อน้ำโซน D — ต้องมองหาเงาที่นิ่งผิดปกติเหนือผิวน้ำ'},
+
+ {id:'cattle-egret', th:'นกยางควาย', en:'Cattle Egret', sci:'Bubulcus ibis',
+  g:'water', z:['A','C'], f:31, img:'cattle-egret', shot:'เดินหากินบนสนามหญ้า',
+  beh:'นกยางที่หากินบนบกมากกว่าในน้ำ เดินตามหลังฝูงสัตว์หรือเครื่องตัดหญ้าเพื่อจับแมลงที่ตกใจบินขึ้น ฤดูผสมพันธุ์หัวและหลังจะขึ้นขนสีส้มทอง นอนรวมฝูงใหญ่บนต้นไม้ตอนกลางคืน',
+  where:'สนามหญ้าเปิดโซน A และ C โดยเฉพาะวันที่มีการตัดหญ้า'},
+
+ {id:'greater-coucal', th:'นกกระปูด', en:'Greater Coucal', sci:'Centropus sinensis',
+  g:'insect', z:['C'], f:7, img:'greater-coucal', shot:'เดินข้ามทางจักรยาน',
+  beh:'ตัวดำเงาปีกสีน้ำตาลแดง ตาแดงก่ำ บินได้ไม่ดีนักจึงชอบเดินลอดพุ่มไม้ทึบมากกว่า เสียงร้อง “ปูด ๆ ๆ” ทุ้มต่ำและดังไกล กินสัตว์เล็ก งู กบ และไข่นกชนิดอื่น',
+  where:'พุ่มไม้ทึบและแนวหญ้าสูงข้างทางจักรยานโซน C — มักเห็นตอนเดินข้ามทางเดิน'},
+
+ {id:'zebra-dove', th:'นกเขาชวา', en:'Zebra Dove', sci:'Geopelia striata',
+  g:'urban', z:['C','D'], f:112, img:'zebra-dove', shot:'หากินเมล็ดหญ้าบนพื้น',
+  beh:'ลายขวางถี่ทั้งลำตัวเหมือนม้าลาย มีหนังเปลือยสีฟ้ารอบตา เดินหากินเมล็ดหญ้าบนพื้นเป็นคู่ ไม่ค่อยกลัวคนจนเดินเข้ามาใกล้ได้ เสียงขันนุ่มเป็นจังหวะที่คนไทยคุ้นเคยที่สุด',
+  where:'ทางเดินและลานโล่งโซน C กับ D ตรงที่มีเมล็ดหญ้าร่วง'},
+
+ {id:'spotted-dove', th:'นกเขาใหญ่', en:'Spotted Dove', sci:'Spilopelia chinensis',
+  g:'urban', z:['A'], f:34, img:'spotted-dove', shot:'เดินหากินบนสนามหญ้าโซน A',
+  beh:'ตัวใหญ่กว่านกเขาชวาชัดเจน มีแถบจุดขาวดำคาดรอบคอด้านหลังเป็นเอกลักษณ์ที่ดูปุ๊บรู้ปั๊บ เดินหากินเมล็ดหญ้าและเมล็ดพืชบนพื้นอย่างช้า ๆ บินขึ้นทีปีกจะดังพรืดเสียงดัง',
+  where:'สนามหญ้าเปิดและขอบทางเดินในโซนป่าชายเลน มักหากินคู่กับนกเขาชวาแต่ระวังตัวมากกว่า'},
+
+ {id:'baya-weaver', th:'นกกระจาบธรรมดา', en:'Baya Weaver', sci:'Ploceus philippinus',
+  g:'insect', z:['A'], f:26, img:'baya-weaver', shot:'ตัวผู้ชุดผสมพันธุ์ ในดงหญ้าสูง',
+  beh:'ตัวผู้ช่วงฤดูผสมพันธุ์จะขึ้นหัวสีเหลืองสดตัดกับลำตัวลายน้ำตาล เป็นนกช่างสานตัวจริง ถักรังทรงหยดน้ำห้อยจากปลายกิ่งเหนือน้ำด้วยใบหญ้าเป็นเส้น ๆ ตัวเมียจะเลือกตัวผู้จากฝีมือการสานรัง',
+  where:'ดงหญ้าสูงและกอไม้น้ำริมบ่อในโซน A — ถ้าหญ้าถูกตัดหรือกอไม้น้ำถูกถาง นกกลุ่มนี้จะหายไปทั้งกลุ่ม'},
+
+ {id:'asian-palm-swift', th:'นกแอ่นตาล', en:'Asian Palm Swift', sci:'Cypsiurus balasiensis',
+  g:'insect', z:['A','B','C','D'], f:52, img:'asian-palm-swift', shot:'บินหากินกลางอากาศเหนือสวน',
+  beh:'ใช้ชีวิตเกือบทั้งวันอยู่บนอากาศ ปีกเรียวโค้งเหมือนเคียวและหางแฉกลึก ไล่จับแมลงกลางอากาศโดยแทบไม่ลงเกาะพื้นเลย ทำรังติดกับใต้ใบปาล์มด้วยน้ำลายของตัวเอง',
+  where:'บินวนอยู่เหนือสวนทุกโซน มองหาบนฟ้าโล่งเหนือทุ่งหญ้าและบึง โดยเฉพาะช่วงก่อนฝนตกที่แมลงบินต่ำ'},
+
+ {id:'rock-pigeon', th:'นกพิราบ', en:'Rock Pigeon', sci:'Columba livia',
+  g:'urban', z:['A','B','C','D'], f:154, img:'rock-pigeon', shot:'บนสนามหญ้าใกล้ลานคน',
+  beh:'รวมฝูงหนาแน่นตามลานที่มีคนให้อาหาร กินเศษขนมปังและเมล็ดพืช ความหนาแน่นของนกพิราบเป็นตัวชี้วัดตรง ๆ ว่าพื้นที่นั้นมีการให้อาหารสัตว์มากแค่ไหน และมักเบียดเบียนนกพื้นถิ่นชนิดอื่น',
+  where:'ลานกิจกรรมและจุดพักที่คนนั่งกินอาหาร — หนาแน่นที่สุดในโซน C'}
+];
+
+/* ---- 8.3c จุดพบจริงจาก GPS ในภาพถ่าย ------------------------------------
+   อ่านจาก EXIF ของภาพในโฟลเดอร์ "GPS info" (29 ก.ค. 2569)
+   คัดเฉพาะภาพที่พิกัดอยู่ในเขตสวนรถไฟจริงเท่านั้น
+   ภาพนอกเขตสวน 32 ภาพ (ห่างออกไป 0.9–1.5 กม. ทางตะวันออก) ตัดทิ้งทั้งหมด
+   นี่คือ "ข้อมูลวัดจริง" ต่างจากจุดถิ่นอาศัยที่เป็นแบบจำลอง
+   -------------------------------------------------------------------------- */
+const GPS_SIGHTINGS = [
+  {sp:'stork-billed-kingfisher', lat:13.81026, lon:100.55322, dt:'2026-07-29', n:5, f:'_MG_7914'},
+  {sp:'greater-coucal',          lat:13.81023, lon:100.55334, dt:'2026-07-29', n:1, f:'_MG_7951'},
+  {sp:'greater-coucal',          lat:13.81014, lon:100.55338, dt:'2026-07-29', n:1, f:'_MG_7961'},
+  {sp:'spotted-owlet',           lat:13.81008, lon:100.55326, dt:'2026-07-29', n:1, f:'_MG_7973'},
+  {sp:'spotted-owlet',           lat:13.81351, lon:100.55224, dt:'2026-07-29', n:3, f:'_MG_8356'},
+  {sp:'oriental-magpie-robin',   lat:13.80968, lon:100.55308, dt:'2026-07-29', n:1, f:'_MG_7985'},
+  {sp:'cattle-egret',            lat:13.81042, lon:100.55130, dt:'2026-07-29', n:1, f:'_MG_8091'},
+  {sp:'pied-fantail',            lat:13.81086, lon:100.55219, dt:'2026-07-29', n:2, f:'_MG_8114'},
+  {sp:'asian-palm-swift',        lat:13.81452, lon:100.55278, dt:'2026-07-29', n:2, f:'_MG_8341'},
+  {sp:'asian-palm-swift',        lat:13.81376, lon:100.55120, dt:'2026-07-29', n:2, f:'_MG_8350'},
+  {sp:'baya-weaver',             lat:13.81519, lon:100.55243, dt:'2026-07-29', n:3, f:'_MG_8369'},
+  {sp:'baya-weaver',             lat:13.81522, lon:100.55259, dt:'2026-07-29', n:3, f:'_MG_8396'},
+  {sp:'plain-prinia',            lat:13.81518, lon:100.55252, dt:'2026-07-29', n:2, f:'_MG_8403'}
+];
+
+/* ---- 8.3b ภาพเสริมของบางชนิด ---- */
+const EXTRA_SHOT = {
+  'spotted-owlet':'spotted-owlet-pair',
+  'olive-backed-sunbird':'sunbird-nest',
+  'asian-openbill':'asian-openbill-full',
+  'striated-heron':'striated-heron-head',
+  'javan-pond-heron':'javan-pond-heron-alt'
+};
+
+/* ---- 8.4 real-world placement of the park ----
+   ค่าเริ่มต้นเป็นค่าประมาณ — พอดึงขอบเขตจริงจาก OpenStreetMap ได้แล้ว
+   ระบบจะคำนวณกรอบนี้ใหม่จากรูปหลายเหลี่ยมจริงของสวนโดยอัตโนมัติ      */
+const GEO   = {n:13.8163, s:13.8073, w:100.5484, e:100.5597};
+const SVGBB = {x0:156, x1:818, y0:44, y1:858};
+const toLL = (x,y)=>[
+  GEO.w + (x-SVGBB.x0)/(SVGBB.x1-SVGBB.x0)*(GEO.e-GEO.w),
+  GEO.n - (y-SVGBB.y0)/(SVGBB.y1-SVGBB.y0)*(GEO.n-GEO.s)
+];
+
+
+const mapEl = $('#map');
+if(mapEl){
+(function initMap(){
+  const viewport = $('#mapViewport'), world = $('#mapWorld');
+  const heatC = $('#heatCanvas'), hctx = heatC.getContext('2d');
+  const HW = heatC.width, HH = heatC.height, K = HW/1000;   /* world → canvas */
+
+  /* ---------- seeded RNG so the simulation is stable ---------- */
+  let _s = 20260804;
+  const rnd = ()=> ((_s = (_s*1664525 + 1013904223) >>> 0) / 4294967296);
+
+  /* ---------- state ---------- */
+  const state = {
+    zone:'ALL',
+    species:null,
+    src:'range',        /* 'ours' = 3 วันของเรา · 'range' = 1 ม.ค. – 5 ส.ค. */
+    groups:new Set(Object.keys(GROUPS)),
+    time:'dawn', season:'wet',
+    layers:{heat:true, gps:true, spots:true, zones:true, park:true, canopy:true, bld:true, labels:true, water:true},
+    opacity:.82, radius:34, floor:8
+  };
+  /* filled in by whichever map engine boots (MapLibre, or the vector fallback) */
+  const ENGINE = { redraw(){}, layers(){}, focus(){}, style(){}, camera(){} };
+  const isGL = ()=> document.body.classList.contains('gl');
+
+  /* ---------- palette LUT ---------- */
+  const lut = (()=>{
+    const c = document.createElement('canvas'); c.width=256; c.height=1;
+    const g = c.getContext('2d'), grd = g.createLinearGradient(0,0,256,0);
+    grd.addColorStop(0,'#12403A'); grd.addColorStop(.22,'#2F7A46');
+    grd.addColorStop(.44,'#7FBE3E'); grd.addColorStop(.63,'#F2C14B');
+    grd.addColorStop(.82,'#E8743B'); grd.addColorStop(1,'#D8402F');
+    g.fillStyle=grd; g.fillRect(0,0,256,1);
+    return g.getImageData(0,0,256,1).data;
+  })();
+
+  /* ---------- circle brush ---------- */
+  let brush = null, brushR = 0;
+  function makeBrush(r){
+    const c = document.createElement('canvas'); c.width=c.height=r*2;
+    const g = c.getContext('2d'), grd = g.createRadialGradient(r,r,0,r,r,r);
+    grd.addColorStop(0,'rgba(0,0,0,1)'); grd.addColorStop(.45,'rgba(0,0,0,.55)');
+    grd.addColorStop(1,'rgba(0,0,0,0)');
+    g.fillStyle=grd; g.fillRect(0,0,r*2,r*2);
+    brush = c; brushR = r;
+  }
+
+  /* ---------- build the point cloud ---------- */
+  /* จำนวนตัวรวมทั้งหมด และค่าสูงสุด — ใช้ทำ normalisation */
+  let MAXN  = Math.max(...SPECIES.map(s=>s.f));
+  const TOTALN = SPECIES.reduce((a,s)=>a+s.f, 0);
+  /* กระจายจำนวนตัวลงแต่ละโซนตามน้ำหนักของโซนนั้น */
+  function zoneShare(sp, zid){
+    const tot = sp.z.reduce((a,id)=>{
+      const z = ZONES.find(x=>x.id===id);
+      return a + (z ? Math.max(...z.spots.map(s=>s[2])) : 1);
+    },0);
+    const z = ZONES.find(x=>x.id===zid);
+    return sp.f * (Math.max(...z.spots.map(s=>s[2])) / tot);
+  }
+
+  /* รวมจุดถิ่นอาศัยที่นกชนิดหนึ่งใช้จริงในโซนหนึ่ง พร้อมน้ำหนักความชอบ */
+  function habSpots(spId, zid){
+    const pref = PREF[spId] || {lawn:1};
+    const H = HAB[zid] || {};
+    const out = [];
+    Object.entries(pref).forEach(([hab,w])=>{
+      (H[hab]||[]).forEach(p=> out.push({x:p[0], y:p[1], w, hab}));
+    });
+    return out.length ? out : [{x:500,y:500,w:1,hab:'lawn'}];
+  }
+
+  let POINTS = [], SPOTS = [];
+  function buildPoints(){
+    _s = 20260804; POINTS = []; SPOTS = [];
+    SPECIES.forEach(sp=>{
+      /* น้ำหนัก = จำนวนตัว (log scale) × ความถี่การพบจาก eBird
+         ชนิดที่เจอบ่อยทุกวันจะเด่นกว่าชนิดที่บังเอิญเจอฝูงใหญ่ครั้งเดียว */
+      const abund = Math.log10(1 + sp.f) / Math.log10(1 + MAXN);
+      const freq  = (typeof sp.freq === 'number') ? (0.35 + 0.65*sp.freq) : 1;
+      const wBase = abund * freq;
+      sp.z.forEach(zid=>{
+        if(!ZONES.find(x=>x.id===zid)) return;
+        const anchors = habSpots(sp.id, zid);
+        const tw = anchors.reduce((a,s)=>a+s.w, 0);
+        const cnt = zoneShare(sp, zid);
+        const n = Math.max(4, Math.min(45, Math.round(cnt)));   /* จำกัดเพื่อความลื่นบนมือถือ */
+
+        /* จุดสำหรับ heatmap — กระจายรอบถิ่นอาศัยที่นกชนิดนั้นใช้จริง */
+        for(let i=0;i<n;i++){
+          let r = rnd()*tw, a = anchors[0];
+          for(const s of anchors){ r -= s.w; if(r<=0){ a = s; break; } }
+          const ang = rnd()*Math.PI*2;
+          /* กระจายกว้างขึ้น แต่ยังเกาะกลุ่มรอบจุดถิ่นอาศัย */
+          const rad = Math.pow(rnd(), .55) * 54;
+          POINTS.push({
+            sp: sp.id, g: sp.g, zone: zid, hab: a.hab,
+            x: a.x + Math.cos(ang)*rad,
+            y: a.y + Math.sin(ang)*rad*.86,
+            w: wBase * a.w * (.6 + rnd()*.45)
+          });
+        }
+
+        /* จุดที่พบ — หมุดจริงที่เปิด/ปิดได้ */
+        anchors.filter(a=> a.w >= .5).forEach(a=>{
+          SPOTS.push({sp:sp.id, zone:zid, hab:a.hab, x:a.x, y:a.y,
+                      w:a.w, n:Math.max(1, Math.round(cnt * a.w / tw))});
+        });
+      });
+    });
+  }
+
+  /* สร้างจุดใหม่แล้วคัดเฉพาะที่อยู่ในขอบเขตสวนจริง — ใช้แทน buildPoints() ทุกที่ */
+  function rebuild(){
+    buildPoints();
+    if(PARK.poly && window.turf){
+      POINTS = POINTS.filter(p=> inPark(toLL(p.x, p.y)));
+      SPOTS  = SPOTS .filter(p=> inPark(toLL(p.x, p.y)));
+    }
+  }
+
+  /* ---------- render the heatmap ---------- */
+  function renderHeat(){
+    hctx.clearRect(0,0,HW,HH);
+    if(!state.layers.heat){ heatC.style.opacity=0; return; }
+    heatC.style.opacity = 1;
+
+    const r = Math.max(6, state.radius*K);
+    if(!brush || brushR !== Math.round(r)) makeBrush(Math.round(r));
+
+    hctx.globalCompositeOperation = 'source-over';
+    POINTS.forEach(p=>{
+      if(state.species){ if(p.sp!==state.species) return; }
+      else {
+        if(!state.groups.has(p.g)) return;
+        if(state.zone!=='ALL' && p.zone!==state.zone) return;
+      }
+      const w = p.w * (TIME_MUL[state.time][p.g]||1) * (SEASON_MUL[state.season][p.g]||1);
+      if(w<=.02) return;
+      hctx.globalAlpha = Math.min(1, w*.5);
+      hctx.drawImage(brush, p.x*K - brushR, p.y*K - brushR);
+    });
+    hctx.globalAlpha = 1;
+
+    /* alpha channel → palette */
+    const img = hctx.getImageData(0,0,HW,HH), d = img.data;
+    const floor = state.floor*2.55;
+    for(let i=0;i<d.length;i+=4){
+      const a = d[i+3];
+      if(a<=floor){ d[i+3]=0; continue; }
+      const j = a*4;
+      d[i]=lut[j]; d[i+1]=lut[j+1]; d[i+2]=lut[j+2];
+      d[i+3] = Math.min(255, a*1.15) * state.opacity;
+    }
+    hctx.putImageData(img,0,0);
+  }
+
+  /* ---------- zones svg ---------- */
+  const svgZ = $('#svgZones');
+  const NS = 'http://www.w3.org/2000/svg';
+  ZONES.forEach(z=>{
+    const p = document.createElementNS(NS,'polygon');
+    p.setAttribute('points', z.poly);
+    p.setAttribute('class','zpoly');
+    p.style.setProperty('--zc', z.c);
+    p.dataset.z = z.id;
+    const t = document.createElementNS(NS,'text');
+    t.setAttribute('x', z.lx); t.setAttribute('y', z.ly);
+    t.setAttribute('class','zletter'); t.textContent = z.id;
+    svgZ.appendChild(p); svgZ.appendChild(t);
+    p.addEventListener('click', e=>{ e.stopPropagation(); selectZone(z.id); });
+  });
+
+  /* ---------- 3D canopy ---------- */
+  (function trees(){
+    const layer = $('#canopyLayer');
+    const path = $('#parkPath');
+    const inPark = (x,y)=>{
+      try{ return path.isPointInFill(new DOMPoint(x,y)); }catch(e){ return true; }
+    };
+    let made = 0, guard = 0;
+    while(made < 90 && guard++ < 2500){
+      const x = 150 + rnd()*690, y = 40 + rnd()*830;
+      if(!inPark(x,y)) continue;
+      const d = document.createElement('div');
+      const s = 16 + rnd()*30;
+      d.className = 'tree';
+      d.style.setProperty('--s', s+'px');
+      d.style.left = x+'px'; d.style.top = y+'px';
+      d.style.opacity = (.7 + rnd()*.3).toFixed(2);
+      layer.appendChild(d); made++;
+    }
+  })();
+
+  const pins = [];
+
+  /* ---------- camera ---------- */
+  const cam = {x:0, y:0, zoom:.88, tilt:46, rot:0};
+  const compassSvg = $('#btnCompass svg');
+  function applyCam(){
+    world.style.transform =
+      `translate3d(${cam.x}px,${cam.y}px,0) rotateX(${cam.tilt}deg) rotateZ(${cam.rot}deg) scale(${cam.zoom})`;
+    compassSvg.style.transform = `rotate(${cam.rot}deg)`;
+    /* keep markers billboarded */
+    const counter = `rotateZ(${-cam.rot}deg) rotateX(${-cam.tilt}deg)`;
+    pins.forEach(p=> p.style.transform = `translate(-50%,-100%) ${counter}`);
+    $('#rTilt').value = Math.round(cam.tilt); $('#vTilt').textContent = Math.round(cam.tilt)+'°';
+    $('#rRot').value  = Math.round(cam.rot);  $('#vRot').textContent  = Math.round(cam.rot)+'°';
+    $('#rZoom').value = Math.round(cam.zoom*100); $('#vZoom').textContent = cam.zoom.toFixed(2);
+    $('#btn3d').classList.toggle('on', cam.tilt > 6);
+  }
+
+  /* drag: pan · shift-drag / right-drag: orbit */
+  let md = false, orbit = false, px = 0, py = 0;
+  viewport.addEventListener('pointerdown', e=>{
+    e.stopPropagation();
+    if(isGL() || e.target.closest('.pin')) return;
+    md = true; orbit = e.shiftKey || e.button === 2;
+    px = e.clientX; py = e.clientY;
+    viewport.classList.add('grabbing');
+    viewport.setPointerCapture(e.pointerId);
+  });
+  viewport.addEventListener('pointermove', e=>{
+    if(!md) return;
+    const dx = e.clientX - px, dy = e.clientY - py;
+    px = e.clientX; py = e.clientY;
+    if(orbit){
+      cam.rot  = Math.max(-180, Math.min(180, cam.rot + dx*.42));
+      cam.tilt = Math.max(0, Math.min(68, cam.tilt + dy*.30));
+    } else {
+      cam.x += dx; cam.y += dy;
+    }
+    applyCam();
+  });
+  ['pointerup','pointercancel','pointerleave'].forEach(ev=>
+    viewport.addEventListener(ev, ()=>{ md=false; viewport.classList.remove('grabbing'); }));
+  viewport.addEventListener('contextmenu', e=> e.preventDefault());
+
+  viewport.addEventListener('wheel', e=>{
+    e.stopPropagation();
+    if(isGL()) return;              /* MapLibre handles its own zoom */
+    e.preventDefault();
+    cam.zoom = Math.max(.55, Math.min(2.2, cam.zoom * (e.deltaY > 0 ? .92 : 1.08)));
+    applyCam();
+  }, {passive:false});
+
+  $('#btnIn')     .addEventListener('click', ()=> ENGINE.camera('in'));
+  $('#btnOut')    .addEventListener('click', ()=> ENGINE.camera('out'));
+  $('#btnCompass').addEventListener('click', ()=> ENGINE.camera('north'));
+  $('#btn3d')     .addEventListener('click', ()=> ENGINE.camera('3d'));
+  $('#btnReset')  .addEventListener('click', ()=> ENGINE.camera('reset'));
+  [['rTilt','tilt'],['rRot','rot'],['rZoom','zoom']].forEach(([id,k])=>{
+    $('#'+id).addEventListener('input', e=>{
+      ENGINE.camera(k, k==='zoom' ? +e.target.value/100 : +e.target.value);
+    });
+  });
+  $$('#styleSeg button').forEach(b=> b.addEventListener('click', ()=>{
+    $$('#styleSeg button').forEach(x=> x.classList.remove('on'));
+    b.classList.add('on'); ENGINE.style(b.dataset.st);
+  }));
+
+  /* ---------- layer toggles ---------- */
+  function applyLayers(){
+    $$('[data-layer]', mapEl).forEach(el=>{
+      if(el.classList.contains('tog')) return;
+      const on = state.layers[el.dataset.layer];
+      el.style.opacity = on ? '' : '0';
+      el.style.pointerEvents = on ? '' : 'none';
+    });
+    renderHeat();
+  }
+  $$('#layerChips .tog').forEach(b=> b.addEventListener('click', ()=>{
+    const k = b.dataset.layer;
+    state.layers[k] = !state.layers[k];
+    b.classList.toggle('on', state.layers[k]);
+    ENGINE.layers();
+  }));
+
+  /* ---------- compact zone selector ---------- */
+  const zc = $('#zoneChips');
+  [{id:'ALL',name:'ทั้งสวน',c:'#4CA555',lab:'ทั้งหมด'}, ...ZONES].forEach(z=>{
+    const b = document.createElement('button');
+    b.className = (z.id==='ALL' ? 'on' : '');
+    b.dataset.z = z.id;
+    b.style.setProperty('--zc', z.c);
+    b.innerHTML = z.id==='ALL' ? 'ALL' : z.id;
+    b.title = z.id==='ALL' ? 'ทั้งสวน' : z.id+' · '+z.name;
+    b.addEventListener('click', ()=> selectZone(z.id));
+    zc.appendChild(b);
+  });
+
+  /* ---------- group chips ---------- */
+  const gc = $('#groupChips');
+  Object.entries(GROUPS).forEach(([k,g])=>{
+    const b = document.createElement('button');
+    b.className = 'tog on'; b.dataset.g = k;
+    b.style.setProperty('--gc', g.c);
+    b.innerHTML = `<span class="sw"></span>${g.name}`;
+    b.addEventListener('click', ()=>{
+      if(state.groups.has(k)) state.groups.delete(k); else state.groups.add(k);
+      if(!state.groups.size) state.groups.add(k);
+      b.classList.toggle('on', state.groups.has(k));
+      ENGINE.redraw(); updateCard();
+    });
+    gc.appendChild(b);
+  });
+
+  /* ---------- time / season ---------- */
+  $$('#timeSeg button').forEach(b=> b.addEventListener('click', ()=>{
+    $$('#timeSeg button').forEach(x=> x.classList.remove('on'));
+    b.classList.add('on'); state.time = b.dataset.t; ENGINE.redraw(); updateCard();
+  }));
+  $$('#seasonSeg button').forEach(b=> b.addEventListener('click', ()=>{
+    $$('#seasonSeg button').forEach(x=> x.classList.remove('on'));
+    b.classList.add('on'); state.season = b.dataset.s; ENGINE.redraw(); updateCard();
+  }));
+
+  /* ---------- heat sliders ---------- */
+  [['rOpacity','vOpacity','opacity',v=>v/100],
+   ['rRadius','vRadius','radius',v=>v],
+   ['rFloor','vFloor','floor',v=>v]].forEach(([id,vid,key,fn])=>{
+    $('#'+id).addEventListener('input', e=>{
+      state[key] = fn(+e.target.value);
+      $('#'+vid).textContent = e.target.value;
+      ENGINE.redraw();
+    });
+  });
+
+  /* ==========================================================
+     species picker
+     ========================================================== */
+  const spGrid = $('#spGrid');
+  function buildGrid(){
+    spGrid.innerHTML = '';
+    SPECIES.slice().sort((a,b)=> b.f-a.f).forEach(sp=>{
+      const b = document.createElement('button');
+      b.className = 'sp'; b.dataset.sp = sp.id; b.title = sp.th + ' · ' + sp.en;
+      b.innerHTML =
+        `<img src="${sp.avURL || 'assets/birds/'+sp.img+'_av.jpg'}" alt="${sp.th}" loading="lazy">` +
+        `<span class="nm">${sp.th}</span>`;
+      b.addEventListener('click', ()=> selectSpecies(state.species===sp.id ? null : sp.id));
+      spGrid.appendChild(b);
+    });
+  }
+  buildGrid();
+
+  let query = '';
+  const qnorm = s => (s||'').toLowerCase().replace(/\s+/g,'');
+  function speciesVisible(sp){
+    if(state.zone!=='ALL' && !sp.z.includes(state.zone)) return false;
+    if(query && !(qnorm(sp.th).includes(query) || qnorm(sp.en).includes(query)
+                  || qnorm(sp.sci).includes(query))) return false;
+    return true;
+  }
+  $('#spSearch').addEventListener('input', e=>{
+    query = qnorm(e.target.value); refreshGrid();
+  });
+  function refreshGrid(){
+    let n = 0;
+    $$('#spGrid .sp').forEach(b=>{
+      const sp = SPECIES.find(s=>s.id===b.dataset.sp);
+      const vis = speciesVisible(sp); if(vis) n++;
+      b.style.display = (query && !vis) ? 'none' : '';
+      b.classList.toggle('off', !vis);
+      b.classList.toggle('on', state.species===sp.id);
+    });
+    $('#spCount').textContent = `(${n} ชนิด)`;
+  }
+
+  function selectSpecies(id){
+    state.species = id;
+    refreshGrid();
+    $('#spCard').classList.toggle('on', !!id);
+    $('#zoneCard').classList.toggle('off', !!id);
+    if(id){
+      const sp = SPECIES.find(s=>s.id===id);
+      $('#spImg').src = sp.heroURL || `assets/birds/${sp.img}.jpg`;
+      $('#spImg').alt = sp.th;
+      $('#spCred').textContent = sp.shot + ' · ภาพถ่ายในสวนรถไฟ';
+      $('#spTh').textContent  = sp.th;
+      $('#spEn').textContent  = sp.en;
+      $('#spSci').textContent = sp.sci;
+      $('#spBeh').textContent = sp.beh;
+      $('#spWhere').textContent = sp.where;
+      $('#mapCard').style.setProperty('--zc', GROUPS[sp.g] ? GROUPS[sp.g].c : '#4CA555');
+      $('#spZones').innerHTML = sp.z.map(zid=>{
+        const z = ZONES.find(x=>x.id===zid);
+        return `<b style="--zc:${z.c}">${zid} · ${z.name}</b>`;
+      }).join('');
+      /* ถิ่นอาศัยที่ใช้จริง เรียงตามความชอบ */
+      const HC = {water:'#4FB3D9', canopy:'#5FBF6A', lawn:'#E3C04A',
+                  scrub:'#9BCB3B', path:'#E8743B'};
+      $('#spHab').innerHTML = Object.entries(PREF[sp.id]||{})
+        .sort((a,b)=> b[1]-a[1])
+        .map(([h,w])=>`<span style="--hc:${HC[h]}"><i></i>${HAB_TH[h]}<b>${Math.round(w*100)}%</b></span>`)
+        .join('');
+      $('#spFreqN').textContent = sp.f;
+      $('#spPeriod').textContent = state.src === 'ours'
+        ? '26, 29 ก.ค. · 4 ส.ค. 2569' : '1 ม.ค. – 5 ส.ค. 2569';
+      $('#spEbStat').innerHTML =
+        (sp.days   != null ? `<span>เจอ <b>${sp.days}</b> วัน</span>` : '') +
+        (sp.freq   != null ? `<span>ความถี่ <b>${Math.round(sp.freq*100)}%</b></span>` : '') +
+        (sp.maxDay != null ? `<span>สูงสุด/วัน <b>${sp.maxDay}</b></span>` : '');
+      const pct = Math.round(Math.log10(1+sp.f)/Math.log10(1+MAXN)*100);
+      requestAnimationFrame(()=> $('#spFreq').style.width = pct+'%');
+      $('#spZoneN').innerHTML = sp.z.map(zid=>
+        `<span>${zid} <b>${Math.round(zoneShare(sp,zid))}</b></span>`).join('');
+      /* fly the map to the bird's main zone */
+      if(GL.ready && GL.map){
+        const z = ZONES.find(x=>x.id===sp.z[0]);
+        const top = z.spots.slice().sort((a,b)=>b[2]-a[2])[0];
+        GL.map.easeTo({center:toLL(top[0],top[1]), zoom: sp.z.length>2 ? 14.5 : 15.4, duration:900});
+      }
+    }
+    glMarkers();
+    ENGINE.focus(); ENGINE.redraw();
+    if(!id) updateCard();
+    syncPhoneCard();
+  }
+  $('#spBack').addEventListener('click', ()=> selectSpecies(null));
+
+  /* ---------- มือถือ: แผงเลื่อนขึ้น-ลง และการ์ดเต็มจอ ---------- */
+  const isPhone = ()=> window.matchMedia('(max-width:900px)').matches;
+  const rail = $('#mapRail');
+  rail.addEventListener('click', e=>{
+    if(!isPhone()) return;
+    if(!rail.classList.contains('open') || e.target === rail) rail.classList.toggle('open');
+  });
+  function syncPhoneCard(){
+    if(!isPhone()) return;
+    $('#mapCard').classList.toggle('show', !!state.species);
+    if(state.species) rail.classList.remove('open');
+  }
+
+  /* ดูรูปนกเต็มจอ */
+  const lb = $('#lightbox');
+  $('#spHero').addEventListener('click', ()=>{
+    if(!state.species) return;
+    const sp = SPECIES.find(s=>s.id===state.species); if(!sp) return;
+    $('#lbImg').src = `assets/birds/${sp.img}.jpg`;
+    $('#lbCap').innerHTML = `${sp.th}<small>${sp.en} · ${sp.sci}</small>`;
+    lb.classList.add('on');
+  });
+  lb.addEventListener('click', ()=> lb.classList.remove('on'));
+  window.addEventListener('keydown', e=>{ if(e.key==='Escape') lb.classList.remove('on'); });
+
+  /* rail tabs */
+  $$('.rail-tabs button').forEach(b=> b.addEventListener('click', ()=>{
+    $$('.rail-tabs button').forEach(x=> x.classList.remove('on'));
+    b.classList.add('on');
+    $('#paneBirds').classList.toggle('on', b.dataset.tab==='birds');
+    $('#paneFilters').classList.toggle('on', b.dataset.tab==='filters');
+  }));
+
+  /* ---------- zone selection + card ---------- */
+  function selectZone(id){
+    state.zone = id;
+    if(state.species){
+      const sp = SPECIES.find(s=>s.id===state.species);
+      if(id!=='ALL' && sp && !sp.z.includes(id)) { selectSpecies(null); }
+    }
+    $$('#zoneChips button').forEach(b=> b.classList.toggle('on', b.dataset.z===id));
+    const zz = ZONES.find(z=>z.id===id);
+    $('#zoneName').textContent = zz ? (id+' · '+zz.name) : 'ทั้งสวน · ทุกโซน';
+    $$('.zpoly', svgZ).forEach(p=>{
+      p.classList.toggle('active', p.dataset.z===id);
+      p.classList.toggle('dim', id!=='ALL' && p.dataset.z!==id);
+    });
+    refreshGrid();
+    ENGINE.focus(); ENGINE.redraw();
+    if(!state.species) updateCard();
+  }
+
+  function updateCard(){
+    if(state.species) return;
+    const card = $('#mapCard');
+    const zs = state.zone==='ALL' ? ZONES : ZONES.filter(z=>z.id===state.zone);
+    const col = state.zone==='ALL' ? '#4CA555' : zs[0].c;
+    card.style.setProperty('--zc', col);
+    $('#cTitle').textContent = state.zone==='ALL' ? 'ทั้งสวน' : zs[0].id + ' · ' + zs[0].name;
+    $('#cSub').textContent   = state.zone==='ALL' ? 'All zones · A–D' : zs[0].en;
+
+    /* จำนวนตัวรวมที่บันทึกได้ในโซนที่เลือก */
+    const inZone = SPECIES.filter(sp=>
+      state.groups.has(sp.g) && (state.zone==='ALL' || sp.z.includes(state.zone)));
+    const total = state.zone==='ALL'
+      ? inZone.reduce((a,sp)=> a+sp.f, 0)
+      : Math.round(inZone.reduce((a,sp)=> a + zoneShare(sp, state.zone), 0));
+    $('#cDens').textContent = total;
+    $('#cSpN').textContent  = inZone.length;
+
+    /* dominant groups */
+    const agg = {};
+    zs.forEach(z=> Object.entries(z.groups).forEach(([g,v])=>{
+      if(!state.groups.has(g)) return;
+      agg[g] = (agg[g]||0) + v*(TIME_MUL[state.time][g]||1)*(SEASON_MUL[state.season][g]||1);
+    }));
+    $('#cGroups').innerHTML = Object.entries(agg).sort((a,b)=>b[1]-a[1]).slice(0,3)
+      .map(([g])=>`<span style="border-color:${GROUPS[g].c}66;color:${GROUPS[g].c}">${GROUPS[g].name}</span>`).join('');
+
+    /* environment pairing */
+    const E = [['💧','ใกล้แหล่งน้ำ','water'],['🌳','ความหนาแน่นเรือนยอด','canopy'],
+               ['🚲','ระยะห่างจากเลนจักรยาน','bike'],['🚶','ความพลุกพล่านของคน','people']];
+    const avg = k => Math.round(zs.reduce((s,z)=> s+z.env[k],0)/zs.length);
+    $('#cEnv').innerHTML = E.map(([i,l,k])=>
+      `<div class="e"><i>${i}</i><span style="min-width:88px">${l}</span>
+         <span class="eb"><u data-w="${avg(k)}"></u></span><em>${avg(k)}</em></div>`).join('');
+    requestAnimationFrame(()=> $$('#cEnv u').forEach(u=> u.style.width = u.dataset.w+'%'));
+
+    $('#cNote').textContent = state.zone==='ALL'
+      ? 'นกกระจายทั่วสวน แต่ความหนาแน่นกระจุกอยู่ที่รอยต่อระหว่างน้ำกับป่า และห่างจากเส้นทางที่คนใช้มากที่สุด'
+      : zs[0].note;
+  }
+
+  /* ==========================================================
+     8.5 · MapLibre engine — real basemap (CARTO, no API key)
+     ========================================================== */
+  const GL = {
+    map:null, ready:false,
+    styles:{
+      dark   :'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+      voyager:'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+      light  :'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
+    },
+    style:'dark', markers:[]
+  };
+
+  function loadAsset(tag, attrs){
+    return new Promise((res,rej)=>{
+      const el = document.createElement(tag);
+      Object.assign(el, attrs);
+      el.onload = res; el.onerror = rej;
+      document.head.appendChild(el);
+    });
+  }
+
+  /* ---- geojson builders ---- */
+  const heatGeo = ()=>({type:'FeatureCollection', features:POINTS.map(p=>({
+    type:'Feature',
+    geometry:{type:'Point', coordinates:toLL(p.x,p.y)},
+    properties:{g:p.g, z:p.zone,
+      w: Math.min(1, p.w*(TIME_MUL[state.time][p.g]||1)*(SEASON_MUL[state.season][p.g]||1))}
+  }))});
+
+  const HAB_COL = {water:'#4FB3D9', canopy:'#5FBF6A', lawn:'#E3C04A',
+                   scrub:'#9BCB3B', path:'#E8743B'};
+  /* จุดพบจริงจาก GPS — ข้อมูลวัดจริง ไม่ใช่แบบจำลอง */
+  const gpsGeo = ()=>({type:'FeatureCollection', features:GPS_SIGHTINGS
+    .filter(g=> !state.species || g.sp===state.species)
+    .map(g=>{
+      const sp = SPECIES.find(s=>s.id===g.sp);
+      return {type:'Feature', geometry:{type:'Point', coordinates:[g.lon, g.lat]},
+        properties:{sp:g.sp, th:sp?sp.th:g.sp, en:sp?sp.en:'', img:sp?sp.img:'',
+                    n:g.n, dt:g.dt, file:g.f}};
+    })});
+
+  const spotGeo = ()=>({type:'FeatureCollection', features:SPOTS.map(s=>({
+    type:'Feature',
+    geometry:{type:'Point', coordinates:toLL(s.x,s.y)},
+    properties:{sp:s.sp, z:s.zone, hab:s.hab, n:s.n, w:s.w,
+                col:HAB_COL[s.hab]||'#fff', lab:HAB_TH[s.hab]||s.hab}
+  }))});
+
+  /* ---- ขอบเขตสวนจริงจาก OpenStreetMap (เติมตอน runtime) ---- */
+  const PARK = { poly:null, bbox:null };   /* GeoJSON Polygon ของสวนจริง */
+
+  function zoneRing(z){
+    const pts = z.poly.split(' ').map(s=>{ const [x,y]=s.split(',').map(Number); return toLL(x,y); });
+    pts.push(pts[0].slice());
+    return [pts];
+  }
+  const zoneGeo = ()=>({type:'FeatureCollection', features:ZONES.map(z=>{
+    let geom = {type:'Polygon', coordinates:zoneRing(z)};
+    /* ตัดโซนให้อยู่ในขอบเขตสวนจริง ไม่ให้ล้ำไปสวนอื่นหรือถนน */
+    if(PARK.poly && window.turf){
+      try{
+        const cut = turf.intersect(turf.polygon(geom.coordinates), PARK.poly);
+        if(cut && cut.geometry) geom = cut.geometry;
+      }catch(e){}
+    }
+    return {type:'Feature', geometry:geom, properties:{id:z.id, name:z.name, color:z.c}};
+  })});
+
+  /* จุดใด ๆ อยู่ในสวนจริงหรือไม่ */
+  function inPark(lngLat){
+    if(!PARK.poly || !window.turf) return true;
+    try{ return turf.booleanPointInPolygon(turf.point(lngLat), PARK.poly); }
+    catch(e){ return true; }
+  }
+
+  const treeGeo = ()=>{
+    let s = 77771, r = ()=> ((s = (s*1664525+1013904223)>>>0)/4294967296);
+    const path = $('#parkPath'), f = [];
+    let guard = 0;
+    while(f.length < 150 && guard++ < 3000){
+      const x = 150+r()*690, y = 40+r()*830;
+      let ok = true;
+      try{ ok = path.isPointInFill(new DOMPoint(x,y)); }catch(e){}
+      if(!ok) continue;
+      f.push({type:'Feature', geometry:{type:'Point',coordinates:toLL(x,y)},
+              properties:{r: 3+r()*5}});
+    }
+    return {type:'FeatureCollection', features:f};
+  };
+
+  function heatColor(){
+    const f = Math.min(.75, state.floor/100);
+    const at = t => f + (1-f)*t;
+    return ['interpolate',['linear'],['heatmap-density'],
+      0,'rgba(0,0,0,0)',
+      Math.max(.001,f),'rgba(20,80,70,0.28)',
+      at(.30),'rgba(47,122,70,.62)', at(.52),'rgba(127,190,62,.78)',
+      at(.72),'rgba(242,193,75,.86)', at(.88),'rgba(232,116,59,.92)', 1,'#D8402F'];
+  }
+  function heatRadius(){
+    return ['interpolate',['linear'],['zoom'],
+      13, state.radius*.30, 15, state.radius*.62, 17.5, state.radius*1.7];
+  }
+
+  function addOurLayers(){
+    const m = GL.map;
+    if(!m.getSource('park'))   m.addSource('park',   {type:'geojson',
+      data: PARK.poly || {type:'FeatureCollection', features:[]}});
+    if(!m.getSource('zones'))  m.addSource('zones',  {type:'geojson', data:zoneGeo()});
+    if(!m.getSource('birds'))  m.addSource('birds',  {type:'geojson', data:heatGeo()});
+    if(!m.getSource('spots'))  m.addSource('spots',  {type:'geojson', data:spotGeo()});
+    if(!m.getSource('gps'))    m.addSource('gps',    {type:'geojson', data:gpsGeo()});
+    if(!m.getSource('trees'))  m.addSource('trees',  {type:'geojson', data:treeGeo()});
+
+    /* 3D buildings from the basemap's own vector data */
+    try{
+      const src = m.getStyle().layers.find(l=> l['source-layer']==='building');
+      if(src && !m.getLayer('bld3d')) m.addLayer({
+        id:'bld3d', type:'fill-extrusion', source:src.source, 'source-layer':'building',
+        paint:{'fill-extrusion-color':'#3C4A3E','fill-extrusion-opacity':.72,
+               'fill-extrusion-height':['coalesce',['get','render_height'],12],
+               'fill-extrusion-base':0}
+      });
+    }catch(e){}
+
+    if(!m.getLayer('tree-dots')) m.addLayer({id:'tree-dots', type:'circle', source:'trees',
+      paint:{'circle-radius':['interpolate',['linear'],['zoom'],13,['*',['get','r'],.25],17.5,['*',['get','r'],1.6]],
+             'circle-color':'#4E9E58','circle-opacity':.55,'circle-blur':.35}});
+
+    /* ขอบเขตสวนจริง — เห็นชัดแต่ไม่แย่งสายตาจากข้อมูลนก */
+    if(!m.getLayer('park-fill')) m.addLayer({id:'park-fill', type:'fill', source:'park',
+      paint:{'fill-color':'#5FBF6A','fill-opacity':.06}});
+    if(!m.getLayer('park-glow')) m.addLayer({id:'park-glow', type:'line', source:'park',
+      paint:{'line-color':'#8FD6A0','line-width':7,'line-opacity':.10,'line-blur':6}});
+    if(!m.getLayer('park-line')) m.addLayer({id:'park-line', type:'line', source:'park',
+      layout:{'line-join':'round'},
+      paint:{'line-color':'#A8E6B8','line-width':2.2,'line-opacity':.75}});
+
+    if(!m.getLayer('zone-fill')) m.addLayer({id:'zone-fill', type:'fill', source:'zones',
+      paint:{'fill-color':['get','color'],'fill-opacity':.16}});
+    if(!m.getLayer('zone-line')) m.addLayer({id:'zone-line', type:'line', source:'zones',
+      paint:{'line-color':['get','color'],'line-width':2.4,'line-dasharray':[3,2],'line-opacity':.9}});
+    if(!m.getLayer('zone-lab')) m.addLayer({id:'zone-lab', type:'symbol', source:'zones',
+      layout:{'text-field':['get','name'],'text-size':13,
+              'text-font':['Open Sans Regular','Arial Unicode MS Regular']},
+      paint:{'text-color':'#ffffff','text-opacity':.42,'text-halo-color':'#0A140C','text-halo-width':1.4}});
+
+    if(!m.getLayer('bird-heat')) m.addLayer({id:'bird-heat', type:'heatmap', source:'birds',
+      paint:{
+        'heatmap-weight':['interpolate',['linear'],['get','w'],0,0,1,.62],
+        'heatmap-intensity':['interpolate',['linear'],['zoom'],13,.30,15,.55,17.5,1.0],
+        'heatmap-radius':heatRadius(),
+        'heatmap-opacity':state.opacity,
+        'heatmap-color':heatColor()
+      }});
+
+    /* จุดที่พบ — วางตามถิ่นอาศัยที่นกชนิดนั้นใช้จริง */
+    if(!m.getLayer('spot-halo')) m.addLayer({id:'spot-halo', type:'circle', source:'spots',
+      paint:{'circle-radius':['interpolate',['linear'],['zoom'],
+               13,['*',['get','w'],10], 15,['*',['get','w'],20], 17.5,['*',['get','w'],46]],
+             'circle-color':['get','col'],'circle-opacity':.18,'circle-blur':.55}});
+    if(!m.getLayer('spot-dot')) m.addLayer({id:'spot-dot', type:'circle', source:'spots',
+      paint:{'circle-radius':['interpolate',['linear'],['zoom'],13,3,15,5.5,17.5,10],
+             'circle-color':['get','col'],'circle-opacity':.95,
+             'circle-stroke-width':1.6,'circle-stroke-color':'rgba(255,255,255,.9)'}});
+    if(!m.getLayer('spot-lab')) m.addLayer({id:'spot-lab', type:'symbol', source:'spots',
+      minzoom:14.4,
+      layout:{'text-field':['get','lab'],'text-size':10.5,'text-offset':[0,1.35],
+              'text-anchor':'top','text-font':['Open Sans Regular','Arial Unicode MS Regular'],
+              'text-allow-overlap':false},
+      paint:{'text-color':'#fff','text-opacity':.85,
+             'text-halo-color':'#0A140C','text-halo-width':1.5}});
+
+    /* จุดพบจริงจาก GPS — วงแหวนขาวเรืองแสง แยกจากจุดจำลองชัดเจน */
+    if(!m.getLayer('gps-halo')) m.addLayer({id:'gps-halo', type:'circle', source:'gps',
+      paint:{'circle-radius':['interpolate',['linear'],['zoom'],13,9,15,18,17.5,42],
+             'circle-color':'#FFFFFF','circle-opacity':.14,'circle-blur':.7}});
+    if(!m.getLayer('gps-dot')) m.addLayer({id:'gps-dot', type:'circle', source:'gps',
+      paint:{'circle-radius':['interpolate',['linear'],['zoom'],13,4.5,15,7,17.5,13],
+             'circle-color':'#FFFFFF','circle-opacity':1,
+             'circle-stroke-width':2.6,'circle-stroke-color':'#4CA555'}});
+    if(!m.getLayer('gps-lab')) m.addLayer({id:'gps-lab', type:'symbol', source:'gps',
+      minzoom:14.2,
+      layout:{'text-field':['get','th'],'text-size':11.5,'text-offset':[0,1.4],
+              'text-anchor':'top','text-font':['Open Sans Regular','Arial Unicode MS Regular']},
+      paint:{'text-color':'#fff','text-halo-color':'#0A140C','text-halo-width':1.8}});
+
+    glApplyFilters(); glApplyLayers();
+  }
+
+  function glApplyFilters(){
+    const m = GL.map; if(!m || !m.getLayer('bird-heat')) return;
+    let f;
+    if(state.species){
+      f = ['all', ['==',['get','sp'], state.species]];
+    } else {
+      f = ['all', ['in',['get','g'],['literal',[...state.groups]]]];
+      if(state.zone!=='ALL') f.push(['==',['get','z'],state.zone]);
+    }
+    m.setFilter('bird-heat', f);
+
+    /* จุดที่พบ: โชว์เฉพาะตอนเลือกนกแล้ว */
+    ['spot-halo','spot-dot','spot-lab'].forEach(id=>{
+      if(!m.getLayer(id)) return;
+      m.setFilter(id, state.species
+        ? ['==',['get','sp'], state.species]
+        : ['==',['get','sp'], '__none__']);
+    });
+
+    /* highlight the zones the selected bird lives in */
+    if(m.getLayer('zone-fill')){
+      const sp = state.species && SPECIES.find(s=>s.id===state.species);
+      const hi = sp ? sp.z : (state.zone==='ALL' ? null : [state.zone]);
+      m.setPaintProperty('zone-fill','fill-opacity', hi
+        ? ['case',['in',['get','id'],['literal',hi]],.40,.03] : .16);
+      m.setPaintProperty('zone-line','line-opacity', hi
+        ? ['case',['in',['get','id'],['literal',hi]],1,.18] : .9);
+    }
+  }
+
+  function glApplyLayers(){
+    const m = GL.map; if(!m) return;
+    const L = state.layers, vis = on => on ? 'visible' : 'none';
+    const set = (id,on)=>{ if(m.getLayer(id)) m.setLayoutProperty(id,'visibility',vis(on)); };
+    set('bird-heat', L.heat);
+    set('spot-halo', L.spots); set('spot-dot', L.spots); set('spot-lab', L.spots);
+    set('gps-halo', L.gps);    set('gps-dot', L.gps);    set('gps-lab', L.gps);
+    set('zone-fill', L.zones); set('zone-line', L.zones); set('zone-lab', L.zones);
+    set('park-fill', L.park);  set('park-line', L.park);  set('park-glow', L.park);
+    set('tree-dots', L.canopy);
+    set('bld3d',     L.bld);
+    /* basemap labels + water */
+    try{
+      m.getStyle().layers.forEach(l=>{
+        if(['zone-lab'].includes(l.id)) return;
+        if(l.type==='symbol') m.setLayoutProperty(l.id,'visibility',vis(L.labels));
+        else if(/water/i.test(l.id)) m.setLayoutProperty(l.id,'visibility',vis(L.water));
+      });
+    }catch(e){}
+  }
+
+  /* ไม่ใช้หมุด HTML แล้ว — ตำแหน่งนกแสดงผ่านเลเยอร์ "จุดที่พบ" แทน */
+  function glMarkers(){
+    GL.markers.forEach(mk=> mk.remove()); GL.markers = [];
+  }
+
+  function initGL(){
+    /* the container must be visible & sized BEFORE MapLibre measures it,
+       otherwise the WebGL canvas is created at 0×0 and renders garbage */
+    document.body.classList.add('gl');
+    const box = $('#glmap');
+    box.style.display = 'block';
+    if(!box.offsetWidth || !box.offsetHeight) throw new Error('map container has no size');
+
+    const m = new maplibregl.Map({
+      container:'glmap',
+      style:GL.styles[GL.style],
+      center:[(GEO.w+GEO.e)/2, (GEO.n+GEO.s)/2],
+      zoom:14.6, pitch:52, bearing:0,
+      maxZoom:18, minZoom:12.5,
+      attributionControl:{compact:true},
+      dragRotate:true, pitchWithRotate:true
+    });
+    GL.map = m;
+    /* keep the canvas in sync with the container at all times */
+    try{ new ResizeObserver(()=> m.resize()).observe(box); }catch(e){}
+    window.addEventListener('resize', ()=> m.resize());
+
+    m.on('load', ()=>{
+      GL.ready = true;
+      $('#mapBoot').classList.add('gone');
+      m.resize();
+      addOurLayers();
+      /* ส่งพิกัดที่คลิกออกไป ให้ฟอร์มเพิ่มการพบเห็นรับไปใช้ */
+      m.on('click', e=> document.dispatchEvent(
+        new CustomEvent('bm:mapclick', {detail:{lat:e.lngLat.lat, lng:e.lngLat.lng}})));
+
+      m.on('click','zone-fill', e=> selectZone(e.features[0].properties.id));
+      m.on('mouseenter','zone-fill', ()=> m.getCanvas().style.cursor='pointer');
+      m.on('mouseleave','zone-fill', ()=> m.getCanvas().style.cursor='');
+
+      /* Info window ของจุดที่พบ */
+      m.on('click','spot-dot', e=>{
+        e.originalEvent.stopPropagation();
+        const p = e.features[0].properties;
+        const sp = SPECIES.find(s=>s.id===p.sp); if(!sp) return;
+        const z  = ZONES.find(x=>x.id===p.z);
+        new maplibregl.Popup({closeButton:true, offset:14, maxWidth:'250px', className:'birdpop'})
+          .setLngLat(e.lngLat)
+          .setHTML(
+            `<img src="assets/birds/${sp.img}_av.jpg" alt="">`+
+            `<b>${sp.th}</b><i>${sp.en}</i>`+
+            `<u style="--hc:${p.col}">${p.lab}</u>`+
+            `<span>${z ? z.name : ''} · ประมาณ ${p.n} ตัว</span>`)
+          .addTo(m);
+      });
+      m.on('mouseenter','spot-dot', ()=> m.getCanvas().style.cursor='pointer');
+      m.on('mouseleave','spot-dot', ()=> m.getCanvas().style.cursor='');
+
+      /* Info window ของจุดพบจริง (GPS) */
+      m.on('click','gps-dot', e=>{
+        e.originalEvent.stopPropagation();
+        const p = e.features[0].properties;
+        new maplibregl.Popup({closeButton:true, offset:14, maxWidth:'260px', className:'birdpop'})
+          .setLngLat(e.lngLat)
+          .setHTML(
+            `<img src="assets/birds/${p.img}_av.jpg" alt="">`+
+            `<b>${p.th}</b><i>${p.en}</i>`+
+            `<u style="--hc:#4CA555">📍 พิกัดจริงจากภาพถ่าย</u>`+
+            `<span>${p.dt} · พบ ${p.n} ตัว · ${p.file}<br>`+
+            `${e.lngLat.lat.toFixed(5)}, ${e.lngLat.lng.toFixed(5)}</span>`)
+          .addTo(m);
+      });
+      m.on('mouseenter','gps-dot', ()=> m.getCanvas().style.cursor='pointer');
+      m.on('mouseleave','gps-dot', ()=> m.getCanvas().style.cursor='');
+      m.on('move', syncFromMap);
+      syncFromMap();
+      glMarkers();
+      /* tile ของ basemap พร้อมแล้ว — ลองดึงขอบเขตสวนอีกรอบ */
+      m.once('idle', ()=> tryPark());
+      setTimeout(tryPark, 2500);
+      window.__glReady = true;
+    });
+    /* error ของ tile / glyph รายชิ้นเป็นเรื่องปกติ ปล่อยผ่าน
+       ห้ามสลับไปแผนที่สำรองเด็ดขาด ตราบใดที่ MapLibre โหลดมาได้แล้ว */
+    m.on('error', e=> console.warn('map', (e && e.error && e.error.message) || e));
+
+    /* engine hooks */
+    ENGINE.redraw = ()=>{
+      if(!GL.ready) return;
+      const s = m.getSource('birds'); if(s) s.setData(heatGeo());
+      const sp2 = m.getSource('spots'); if(sp2) sp2.setData(spotGeo());
+      const g3  = m.getSource('gps');   if(g3)  g3.setData(gpsGeo());
+      if(m.getLayer('bird-heat')){
+        m.setPaintProperty('bird-heat','heatmap-opacity', state.opacity);
+        m.setPaintProperty('bird-heat','heatmap-radius', heatRadius());
+        m.setPaintProperty('bird-heat','heatmap-color', heatColor());
+      }
+      glApplyFilters();
+    };
+    ENGINE.layers = glApplyLayers;
+    ENGINE.focus  = glApplyFilters;
+    ENGINE.camera = (k,v)=>{
+      if(!GL.map) return;
+      if(k==='tilt') m.easeTo({pitch:Math.min(v,70), duration:220});
+      if(k==='rot')  m.easeTo({bearing:v, duration:220});
+      if(k==='zoom') m.easeTo({zoom:13.2 + v*1.9, duration:220});
+      if(k==='in')   m.easeTo({zoom:m.getZoom()+.6, duration:260});
+      if(k==='out')  m.easeTo({zoom:m.getZoom()-.6, duration:260});
+      if(k==='north')m.easeTo({bearing:0, duration:420});
+      if(k==='3d')   m.easeTo({pitch: m.getPitch()>6 ? 0 : 52, duration:520});
+      if(k==='reset')m.flyTo({center:[(GEO.w+GEO.e)/2,(GEO.n+GEO.s)/2],
+                              zoom:14.6, pitch:52, bearing:0, duration:900});
+    };
+    ENGINE.style = st=>{
+      GL.style = st;
+      m.setStyle(GL.styles[st]);
+      m.once('styledata', ()=> setTimeout(()=>{ addOurLayers(); ENGINE.redraw(); }, 60));
+    };
+
+    function syncFromMap(){
+      const p = Math.round(m.getPitch()), b = Math.round(m.getBearing());
+      const z = Math.round((m.getZoom()-13.2)/1.9*100);
+      $('#rTilt').value=p; $('#vTilt').textContent=p+'°';
+      $('#rRot').value=Math.max(-180,Math.min(180,b)); $('#vRot').textContent=b+'°';
+      $('#rZoom').value=Math.max(55,Math.min(220,z)); $('#vZoom').textContent=m.getZoom().toFixed(1);
+      compassSvg.style.transform = `rotate(${-b}deg)`;
+      $('#btn3d').classList.toggle('on', p>6);
+    }
+  }
+
+  /* ==========================================================
+     8.5b · ขอบเขตสวนจริงจาก OpenStreetMap (Overpass API)
+     ----------------------------------------------------------
+     ดึงรูปหลายเหลี่ยมของ "สวนวชิรเบญจทัศ" มาใช้เป็นขอบเขตจริง
+     แล้ว (1) ปรับกรอบพิกัดให้ตรงกับสวนจริง
+          (2) ตัดโซน A–D ไม่ให้ล้ำออกนอกสวน
+          (3) ตัดจุดที่พบ/จุด heatmap ที่หลุดออกนอกสวนทิ้ง
+     ทั้งหมดเป็นข้อมูลเปิด ไม่ต้องใช้ API key
+     ========================================================== */
+  const OVERPASS = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass.osm.jp/api/interpreter'
+  ];
+  const BBOX = '13.8065,100.5465,13.8195,100.5585';   /* ครอบเฉพาะสวนรถไฟ */
+  const PARK_Q = `[out:json][timeout:20];`+
+    `(way["leisure"="park"](${BBOX});relation["leisure"="park"](${BBOX}););out geom tags;`;
+
+  const NAME_HIT = /วชิรเบญจทัศ|wachirabenchathat|wachira ?benchatas|rot ?fai|vachirabenjatas/i;
+  const NAME_BAD = /สิริกิติ์|sirikit|จตุจักร|chatuchak|โมกข์|mokkh/i;
+
+  /* ---- แหล่งที่ 3 : ขอบเขตสำรอง ----
+     ลอกตามเส้นประขอบสวนบน Google Maps ใช้เมื่อดึงออนไลน์ไม่ได้เลย
+     แม่นพอที่จะไม่ล้ำไปสวนจตุจักร / สวนสมเด็จฯ                        */
+  const PARK_FALLBACK = [
+    [100.5500,13.8162],[100.5509,13.8172],[100.5519,13.8183],[100.5542,13.8185],
+    [100.5555,13.8179],[100.5560,13.8173],[100.5561,13.8161],[100.5555,13.8143],
+    [100.5548,13.8127],[100.5541,13.8119],[100.5533,13.8107],[100.5521,13.8102],
+    [100.5509,13.8106],[100.5498,13.8118],[100.5491,13.8129],[100.5491,13.8141],
+    [100.5496,13.8145],[100.5501,13.8149],[100.5500,13.8162]
+  ];
+
+  function ringOf(el){
+    if(el.type === 'way' && el.geometry)
+      return el.geometry.map(p=>[p.lon, p.lat]);
+    if(el.type === 'relation' && el.members){
+      /* ต่อ way วงนอกเข้าด้วยกัน */
+      const outer = el.members.filter(m=> m.role !== 'inner' && m.geometry);
+      let ring = [];
+      outer.forEach(m=> ring = ring.concat(m.geometry.map(p=>[p.lon, p.lat])));
+      return ring;
+    }
+    return null;
+  }
+
+  /* ---- แหล่งที่ 1 : Overpass API (แม่นที่สุด) ---- */
+  async function ringFromOverpass(){
+    let err;
+    for(const url of OVERPASS){
+      try{
+        const r = await fetch(url+'?data='+encodeURIComponent(PARK_Q), {method:'GET'});
+        if(!r.ok) throw new Error(url+' '+r.status);
+        const j = await r.json();
+        const named = (j.elements||[]).filter(e=> e.tags &&
+          (NAME_HIT.test(e.tags.name||'') || NAME_HIT.test(e.tags['name:en']||'')) &&
+          !NAME_BAD.test(e.tags.name||''));
+        const pool = named.length ? named
+          : (j.elements||[]).filter(e=> !e.tags || !NAME_BAD.test(e.tags.name||''));
+        let best=null, bestA=0;
+        pool.forEach(e=>{
+          const ring = ringOf(e); if(!ring || ring.length<4) return;
+          const xs=ring.map(p=>p[0]), ys=ring.map(p=>p[1]);
+          const a=(Math.max(...xs)-Math.min(...xs))*(Math.max(...ys)-Math.min(...ys));
+          if(a>bestA){ bestA=a; best=ring; }
+        });
+        if(best) return {ring:best, src:'OpenStreetMap'};
+      }catch(e){ err = e; }
+    }
+    throw err || new Error('overpass unreachable');
+  }
+
+  /* ---- แหล่งที่ 2 : อ่านรูปสวนจาก vector tile ของ basemap ที่โหลดมาแล้ว ----
+     ไม่ต้องยิงเน็ตเพิ่ม ใช้ได้แม้เปิดไฟล์แบบ file:// ที่มักโดน CORS บล็อก   */
+  function ringFromTiles(){
+    const m = GL.map; if(!m) return null;
+
+    /* หา source ที่มีจริงในสไตล์ แล้วกวาดทุก source-layer ที่อาจเก็บรูปสวน */
+    let sources = [];
+    try{ sources = Object.keys(m.getStyle().sources || {}); }catch(e){ return null; }
+
+    let feats = [];
+    sources.forEach(src=>{
+      ['park','landuse','landcover','poi'].forEach(sl=>{
+        try{ feats = feats.concat(m.querySourceFeatures(src, {sourceLayer:sl})); }catch(e){}
+      });
+    });
+    if(!feats.length) return null;
+
+    const named = feats.filter(f=>{
+      const p = f.properties || {};
+      const nm = p.name || p['name:th'] || p['name:en'] || p.name_en || '';
+      return NAME_HIT.test(nm) && !NAME_BAD.test(nm);
+    });
+    if(!named.length) return null;
+
+    /* tile ตัดรูปเป็นชิ้น ๆ — รวมทุกชิ้นแล้วหาเปลือกนอก */
+    let pts = [];
+    named.forEach(f=>{
+      const g = f.geometry; if(!g) return;
+      const polys = g.type==='Polygon' ? [g.coordinates]
+                  : (g.type==='MultiPolygon' ? g.coordinates : []);
+      polys.forEach(p=> pts = pts.concat(p[0]));
+    });
+    if(pts.length < 8) return null;
+
+    /* ตัดจุดที่หลุดออกนอกกรอบสวนทิ้ง กัน tile ข้างเคียงลากรูปเพี้ยน */
+    const [s1,w1,n1,e1] = BBOX.split(',').map(Number);
+    pts = pts.filter(p=> p[0]>=w1 && p[0]<=e1 && p[1]>=s1 && p[1]<=n1);
+    if(pts.length < 8) return null;
+
+    return {ring:convexHull(pts), src:'basemap tiles'};
+  }
+
+  /* เปลือกนูน (Andrew monotone chain) */
+  function convexHull(pts){
+    const p = pts.slice().sort((a,b)=> a[0]-b[0] || a[1]-b[1]);
+    const cross=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+    const lo=[], up=[];
+    for(const q of p){ while(lo.length>=2 && cross(lo[lo.length-2],lo[lo.length-1],q)<=0) lo.pop(); lo.push(q); }
+    for(let i=p.length-1;i>=0;i--){ const q=p[i];
+      while(up.length>=2 && cross(up[up.length-2],up[up.length-1],q)<=0) up.pop(); up.push(q); }
+    lo.pop(); up.pop();
+    return lo.concat(up);
+  }
+
+  /* allowFallback = true เฉพาะรอบสุดท้าย — ไม่งั้นจะล็อกรูปสำรองไว้
+     ตั้งแต่รอบแรกก่อนที่ Overpass หรือ tile จะทันตอบ                    */
+  async function loadParkBoundary(allowFallback){
+    let got = null;
+    try{ got = await ringFromOverpass(); }
+    catch(e){ console.warn('overpass failed:', e && e.message); }
+    if(!got) got = ringFromTiles();
+    if(!got && allowFallback)
+      got = {ring:PARK_FALLBACK.map(p=>p.slice()), src:'ขอบเขตสำรอง (ลอกจาก Google Maps)'};
+    if(!got) throw new Error('ยังไม่ได้ขอบเขตจริง — จะลองใหม่');
+    let best = got.ring;
+
+    /* ปิดวง */
+    const f = best[0], l = best[best.length-1];
+    if(f[0]!==l[0] || f[1]!==l[1]) best.push(f.slice());
+    PARK.poly = {type:'Feature', properties:{},
+                 geometry:{type:'Polygon', coordinates:[best]}};
+
+    /* (1) ปรับกรอบพิกัดให้พอดีกับสวนจริง แล้วขยับเข้าด้านใน 6%
+           เพื่อให้โซนไม่ไปเบียดขอบรั้ว */
+    const xs = best.map(p=>p[0]), ys = best.map(p=>p[1]);
+    const w0 = Math.min(...xs), e0 = Math.max(...xs);
+    const s0 = Math.min(...ys), n0 = Math.max(...ys);
+    const padX = (e0-w0)*0.06, padY = (n0-s0)*0.06;
+    GEO.w = w0 + padX; GEO.e = e0 - padX;
+    GEO.s = s0 + padY; GEO.n = n0 - padY;
+    PARK.bbox = [[w0,s0],[e0,n0]];
+
+    /* (2)(3) สร้างจุดใหม่แล้วคัดเฉพาะที่อยู่ในสวนจริง */
+    rebuild();
+
+    if(GL.ready && GL.map){
+      const m = GL.map;
+      if(m.getSource('park')) m.getSource('park').setData(PARK.poly);
+      if(m.getSource('zones')) m.getSource('zones').setData(zoneGeo());
+      ENGINE.redraw();
+      m.fitBounds([[w0,s0],[e0,n0]], {padding:{top:90,bottom:110,left:330,right:400}, duration:900});
+    }
+    const b = $('#osmBadge');
+    if(b){ b.textContent = `ขอบเขตสวนจาก ${got.src} · ${best.length} จุด`; b.classList.add('live'); }
+    console.info('park boundary loaded from', got.src, best.length, 'vertices');
+  }
+
+  /* ==========================================================
+     8.6 · eBird live data
+     ----------------------------------------------------------
+     ดึงจำนวนตัวจริงจาก hotspot "Rot Fai Park" (L990195)
+     ช่วง 26 ก.ค. – 4 ส.ค. แล้วเขียนทับค่าประมาณการใน SPECIES[].f
+     ถ้าดึงไม่ได้ (ออฟไลน์ / โดน CORS) จะใช้ค่าประมาณการเดิมต่อไป
+     ========================================================== */
+  const EBIRD = {
+    key:'i0ho2b8p16lc', loc:'L990195',
+    /* ชุดที่ 1 — เฉพาะวันที่พวกเราออกสำรวจเอง */
+    ours:[[2026,7,26],[2026,7,29],[2026,8,4]],
+    /* ชุดที่ 2 — ตั้งแต่ 1 ม.ค. 2569 ถึง "วันที่เปิดเว็บ" อัปเดตเองทุกวัน */
+    from:[2026,1,1],
+    get to(){ const d = new Date(); return [d.getFullYear(), d.getMonth()+1, d.getDate()]; },
+    conc:3, cacheV:'v1'
+  };
+  const ymd = a => `${a[0]}-${String(a[1]).padStart(2,'0')}-${String(a[2]).padStart(2,'0')}`;
+  const daysBetween = (from, to)=>{
+    const out = [], a = new Date(from+'T00:00:00Z'), b = new Date(to+'T00:00:00Z');
+    for(let d=new Date(a); d<=b; d.setUTCDate(d.getUTCDate()+1))
+      out.push([d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate()]);
+    return out;
+  };
+  const nextDay = s =>{ const d=new Date(s+'T00:00:00Z'); d.setUTCDate(d.getUTCDate()+1);
+    return d.toISOString().slice(0,10); };
+  /* จับคู่ชื่อสามัญของ eBird เข้ากับชนิดในเว็บ (ทนต่อการเปลี่ยนชื่อทางอนุกรมวิธาน) */
+  const EB_NAME = {
+    'javanpondheron':'javan-pond-heron',
+    'whitebreastedwaterhen':'white-breasted-waterhen',
+    'spottedowlet':'spotted-owlet',
+    'collaredscopsowl':'collared-scops-owl',
+    'indianscopsowl':'collared-scops-owl',
+    'storkbilledkingfisher':'stork-billed-kingfisher',
+    'indianroller':'indian-roller',
+    'coppersmithbarbet':'coppersmith-barbet',
+    'ornatesunbird':'olive-backed-sunbird',
+    'olivebackedsunbird':'olive-backed-sunbird',
+    'orientalmagpierobin':'oriental-magpie-robin',
+    'yellowventedbulbul':'yellow-vented-bulbul',
+    'malaysianpiedfantail':'pied-fantail',
+    'plainprinia':'plain-prinia',
+    'asiankoel':'asian-koel-female',
+    'largebilledcrow':'large-billed-crow',
+    'easternjunglecrow':'large-billed-crow',
+    'commonmyna':'common-myna',
+    'greatmyna':'white-vented-myna',
+    'whiteventedmyna':'white-vented-myna',
+    'blackcollaredstarling':'black-collared-starling',
+    'asianopenbill':'asian-openbill',
+    'striatedheron':'striated-heron',
+    'easterncattleegret':'cattle-egret',
+    'cattleegret':'cattle-egret',
+    'greatercoucal':'greater-coucal',
+    'zebradove':'zebra-dove',
+    'rockpigeon':'rock-pigeon'
+  };
+  const norm = s => (s||'').toLowerCase().replace(/[^a-z]/g,'');
+
+  function eachDay(){
+    if(state.src === 'ours') return EBIRD.ours;
+    const out = [], a = new Date(Date.UTC(...EBIRD.from.map((v,i)=> i===1 ? v-1 : v)));
+    const b = new Date(Date.UTC(...EBIRD.to.map((v,i)=> i===1 ? v-1 : v)));
+    for(let d=new Date(a); d<=b; d.setUTCDate(d.getUTCDate()+1))
+      out.push([d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate()]);
+    return out;
+  }
+
+  /* ดึงทีละวัน + cache ใน localStorage — รอบแรกช้า รอบต่อไปทันที */
+  const ck = (y,m,d)=> `eb:${EBIRD.cacheV}:${EBIRD.loc}:${y}-${m}-${d}`;
+
+  async function fetchDay(day){
+    const [y,m,d] = day, key = ck(y,m,d);
+    try{ const c = localStorage.getItem(key); if(c) return JSON.parse(c); }catch(e){}
+    const r = await fetch(
+      `https://api.ebird.org/v2/data/obs/${EBIRD.loc}/historic/${y}/${m}/${d}`+
+      `?key=${EBIRD.key}&detail=full&includeProvisional=true&maxResults=500`);
+    if(!r.ok) throw new Error('eBird '+r.status);
+    const j = await r.json();
+    const slim = (Array.isArray(j)?j:[]).map(o=>[o.comName, o.howMany||1]);
+    try{ localStorage.setItem(key, JSON.stringify(slim)); }catch(e){}
+    return slim;
+  }
+
+  /* คิวจำกัดคำขอพร้อมกัน กัน eBird ตัดการเชื่อมต่อ */
+  async function pool(items, n, fn, onTick){
+    const out = new Array(items.length); let i = 0, done = 0;
+    await Promise.all(Array.from({length:Math.min(n,items.length)}, async ()=>{
+      while(i < items.length){
+        const k = i++;
+        try{ out[k] = await fn(items[k]); }catch(e){ out[k] = null; }
+        if(onTick) onTick(++done, items.length);
+      }
+    }));
+    return out;
+  }
+
+  let EB_STATS = null;
+
+  async function loadEbird(){
+    const days  = eachDay();
+    const badge = $('#ebBadge');
+    const res = await pool(days, EBIRD.conc, fetchDay, (k,t)=>{
+      if(badge && (k % 10 === 0 || k === t))
+        badge.textContent = `กำลังดึง eBird… ${k}/${t} วัน`;
+    });
+
+    const tally = {};
+    let okDays = 0, dataDays = 0;
+    res.forEach(rows=>{
+      if(!rows) return;
+      okDays++;
+      if(!rows.length) return;
+      dataDays++;
+      const seen = new Set();
+      rows.forEach(row=>{
+        const id = EB_NAME[norm(row[0])];
+        if(!id) return;
+        const n = (typeof row[1] === 'number' && row[1] > 0) ? row[1] : 1;
+        const t = tally[id] || (tally[id] = {n:0, days:0, max:0});
+        t.n += n; t.max = Math.max(t.max, n);
+        if(!seen.has(id)){ t.days++; seen.add(id); }
+      });
+    });
+    if(!okDays) throw new Error('eBird unreachable');
+
+    let hit = 0;
+    SPECIES.forEach(sp=>{
+      const t = tally[sp.id]; if(!t) return;
+      sp.f      = t.n;                             /* จำนวนตัวรวม */
+      sp.days   = t.days;                          /* จำนวนวันที่เจอ */
+      sp.maxDay = t.max;                           /* มากสุดในวันเดียว */
+      sp.freq   = dataDays ? t.days/dataDays : 0;  /* ความถี่การพบ 0–1 */
+      hit++;
+    });
+    if(!hit) throw new Error('no matching species');
+    EB_STATS = {tally, okDays, dataDays, total:days.length};
+
+    MAXN = Math.max(...SPECIES.map(s=>s.f));
+    rebuild(); refreshGrid(); updateStats();
+    if(state.species) selectSpecies(state.species); else updateCard();
+    ENGINE.redraw();
+
+    if(badge){
+      badge.textContent = state.src === 'ours'
+        ? `eBird · ${hit} ชนิด · ${dataDays}/${days.length} วันสำรวจของเรา`
+        : `eBird · ${hit} ชนิด · มีข้อมูล ${dataDays} วัน จาก ${days.length} วัน (1 ม.ค. – 5 ส.ค. 69)`;
+      badge.classList.add('live');
+    }
+    console.info('eBird loaded', EB_STATS);
+  }
+
+  function countCachedDays(){
+    let n = 0;
+    try{ for(let i=0;i<localStorage.length;i++)
+      if((localStorage.key(i)||'').startsWith('eb:')) n++; }catch(e){}
+    return n;
+  }
+  /* รอให้แผนที่พร้อมก่อน ค่อยทำงานหนัก จะได้ไม่แย่งแบนด์วิดท์กัน */
+  function waitForMap(fn){
+    if(GL.ready || document.body.classList.contains('svgfb')) return setTimeout(fn, 600);
+    let k = 0;
+    const t = setInterval(()=>{
+      if(GL.ready || document.body.classList.contains('svgfb') || ++k > 60){
+        clearInterval(t); setTimeout(fn, 600);
+      }
+    }, 500);
+  }
+
+  /* เติมเฉพาะวันใหม่ที่ยังไม่มีใน data.json — เปิดวันไหนก็ได้ตัวเลขถึงวันนั้น
+     ปกติเหลือแค่ไม่กี่วัน โหลดเสร็จในไม่กี่วินาที                        */
+  async function topUp(fromISO){
+    const todayISO = new Date().toISOString().slice(0,10);
+    if(fromISO > todayISO) return;
+    const days = daysBetween(fromISO, todayISO);
+    if(!days.length) return;
+    const badge = $('#ebBadge');
+    const res = await pool(days, EBIRD.conc, fetchDay, (k,t)=>{
+      if(badge && (k===t || k%5===0)) badge.textContent = `กำลังเติมข้อมูลใหม่ ${k}/${t} วัน…`;
+    });
+
+    let newDays = 0;
+    const add = {};
+    res.forEach(rows=>{
+      if(!rows || !rows.length) return;
+      newDays++;
+      const seen = new Set();
+      rows.forEach(row=>{
+        const id = EB_NAME[norm(row[0])]; if(!id) return;
+        const n = (typeof row[1]==='number' && row[1]>0) ? row[1] : 1;
+        const t = add[id] || (add[id] = {n:0, days:0, max:0});
+        t.n += n; t.max = Math.max(t.max, n);
+        if(!seen.has(id)){ t.days++; seen.add(id); }
+      });
+    });
+
+    if(newDays){
+      const base = EB_BASE_DAYS || 1;
+      SPECIES.forEach(sp=>{
+        const t = add[sp.id]; if(!t) return;
+        sp.f      = (sp.f||0) + t.n;
+        sp.days   = (sp.days||0) + t.days;
+        sp.maxDay = Math.max(sp.maxDay||0, t.max);
+        sp.freq   = Math.min(1, sp.days / (base + newDays));
+      });
+      MAXN = Math.max(...SPECIES.map(s=>s.f));
+      rebuild(); refreshGrid(); updateStats();
+      if(state.species) selectSpecies(state.species); else updateCard();
+      ENGINE.redraw();
+    }
+    if(badge){
+      badge.textContent = `eBird · ถึงวันที่ ${todayISO}` +
+        (newDays ? ` · เติมใหม่ ${newDays} วัน` : ' · เป็นข้อมูลล่าสุดแล้ว');
+      badge.classList.add('live');
+    }
+    console.info('top-up', days.length, 'วัน · มีข้อมูล', newDays);
+  }
+  let EB_BASE_DAYS = 0;
+
+  function runEbird(){
+    const b = $('#ebBadge');
+    if(b){ b.classList.remove('live'); b.textContent = 'กำลังดึงข้อมูลจาก eBird…'; }
+    loadEbird().catch(err=>{
+      if(b) b.textContent = 'ตัวเลขประมาณการ — ยังต่อ eBird ไม่ได้';
+      console.warn('eBird:', err && err.message);
+    });
+  }
+
+  /* ---- ถ้ามี data.json (เวอร์ชันที่เผยแพร่แล้ว) ให้ใช้ไฟล์นั้นแทนการเรียก eBird สด ----
+     สำคัญ: ถ้าไม่มี data.json จะ "ไม่" ยิง eBird อัตโนมัติตอนเปิดเว็บ
+     เพราะ 217 คำขอจะแย่งแบนด์วิดท์กับ tile แผนที่จนโหลดไม่ขึ้นและแลค
+     ให้กดเองจากแผงตั้งค่า หรือรอจนแผนที่พร้อมแล้วค่อยโหลดเงียบ ๆ            */
+  async function bootData(){
+    let d = null;
+    try{
+      const r = await fetch('data.json', {cache:'no-store'});
+      if(r.ok && /json/.test(r.headers.get('content-type')||'')) d = await r.json();
+    }catch(e){}
+
+    if(!d || !Array.isArray(d.species)){
+      const cached = countCachedDays();
+      const b = $('#ebBadge');
+      if(cached > 20){
+        /* เคยดึงไว้แล้ว อ่านจาก cache ได้เร็ว ไม่กินเน็ต */
+        if(b) b.textContent = `กำลังอ่าน eBird จากที่เก็บไว้ (${cached} วัน)…`;
+        waitForMap(()=> runEbird());
+      } else if(b){
+        b.textContent = 'ยังไม่ได้โหลดข้อมูล eBird — กดที่ ⚙ แท็บข้อมูล eBird';
+      }
+      return;
+    }
+
+    d.species.forEach(s=>{
+      let sp = SPECIES.find(x=>x.id===s.id);
+      if(!sp){ sp = Object.assign({}, s); SPECIES.push(sp); }
+      Object.assign(sp, {f:s.f, days:s.days, freq:s.freq, maxDay:s.maxDay});
+      if(s.hab) PREF[s.id] = s.hab;
+    });
+    if(Array.isArray(d.sightings)){
+      d.sightings.forEach(g=>{
+        if(!GPS_SIGHTINGS.some(x=> x.sp===g.sp &&
+           Math.abs(x.lat-g.lat)<2e-5 && Math.abs(x.lon-g.lon)<2e-5)) GPS_SIGHTINGS.push(g);
+      });
+    }
+    if(d.park && d.park.geometry) PARK.poly = d.park;
+
+    MAXN = Math.max(...SPECIES.map(s=>s.f));
+    buildGrid(); rebuild(); refreshGrid(); updateStats();
+    if(state.species) selectSpecies(state.species); else updateCard();
+    ENGINE.redraw();
+    EB_BASE_DAYS = (d.ebird && d.ebird.dataDays) || 0;
+    const upTo = (d.ebird && d.ebird.upTo) || null;
+    const b = $('#ebBadge');
+    if(b){ b.textContent = `eBird · ${d.species.length} ชนิด · ถึง ${upTo || 'ที่บันทึกไว้'}`;
+           b.classList.add('live'); }
+    console.info('ใช้ข้อมูลจาก data.json ถึง', upTo);
+
+    /* เติมวันใหม่ตั้งแต่วันถัดจาก data.json จนถึงวันนี้ — รอแผนที่ขึ้นก่อน */
+    if(upTo) waitForMap(()=> topUp(nextDay(upTo)).catch(e=> console.warn('top-up', e)));
+  }
+  bootData();
+
+  $$('#srcSeg button').forEach(b=> b.addEventListener('click', ()=>{
+    $$('#srcSeg button').forEach(x=> x.classList.remove('on'));
+    b.classList.add('on'); state.src = b.dataset.src; runEbird();
+  }));
+  /* ==========================================================
+     8.7 · รับผลจาก photo-tool.html
+     ----------------------------------------------------------
+     ถ้ามีไฟล์ bird-photos.json วางไว้ข้าง index.html
+     ระบบจะอ่าน GPS + วันเวลาจากไฟล์นั้น แล้วเพิ่มเป็นจุดพบจริง
+     อัตโนมัติ ไม่ต้องมาแก้โค้ดเอง
+     ========================================================== */
+  async function loadPhotoConfig(){
+    let j;
+    try{
+      const r = await fetch('bird-photos.json', {cache:'no-store'});
+      if(!r.ok) return;
+      j = await r.json();
+    }catch(e){ return; }
+
+    let added = 0;
+    Object.entries(j).forEach(([id, c])=>{
+      if(!c || c.lat == null || c.lon == null) return;
+      if(!SPECIES.some(s=>s.id===id)) return;
+      if(!inPark([c.lon, c.lat])){
+        console.warn('นอกเขตสวน ข้ามไป:', id, c.file); return;
+      }
+      const dup = GPS_SIGHTINGS.some(g=>
+        g.sp===id && Math.abs(g.lat-c.lat)<2e-5 && Math.abs(g.lon-c.lon)<2e-5);
+      if(dup) return;
+      GPS_SIGHTINGS.push({sp:id, lat:c.lat, lon:c.lon,
+        dt:(c.dt||'').slice(0,10).replace(/:/g,'-'), n:1, f:c.file||''});
+      added++;
+    });
+    if(added){
+      ENGINE.redraw();
+      if(state.species) selectSpecies(state.species);
+      console.info('เพิ่มจุดพบจริงจาก photo-tool', added, 'จุด');
+    }
+  }
+
+  /* ---------- header stats ---------- */
+  function updateStats(){
+    $('#tSpecies').textContent = SPECIES.length;
+    $('#tBirds').textContent   = SPECIES.reduce((a,s)=>a+s.f,0).toLocaleString('th-TH');
+  }
+
+  /* ---------- boot: try the real map, fall back to the vector one ---------- */
+  rebuild(); refreshGrid(); selectZone('ALL'); updateStats();
+  setTimeout(loadPhotoConfig, 1200);
+
+  /* ---------- hooks ให้แผงตั้งค่า (⚙) เรียกใช้ ---------- */
+  window.BirdMap = {
+    SPECIES, ZONES, PREF, GPS_SIGHTINGS, GROUPS, HAB_TH,
+    inPark,
+    parkPoly: ()=> PARK.poly,
+    runEbird: ()=> loadEbird().catch(e=> console.warn('eBird', e && e.message)),
+    ebStats:  ()=> EB_STATS,
+    /* วาดรายชื่อนกและการ์ดใหม่ หลังเปลี่ยนรูป */
+    refreshArt(){
+      $$('#spGrid .sp').forEach(b=>{
+        const sp = SPECIES.find(s=>s.id===b.dataset.sp); if(!sp) return;
+        const im = b.querySelector('img');
+        const src = sp.avURL || `assets/birds/${sp.img}_av.jpg`;
+        if(im && im.getAttribute('src') !== src) im.src = src;
+      });
+      if(state.species){
+        const sp = SPECIES.find(s=>s.id===state.species);
+        if(sp) $('#spImg').src = sp.heroURL || `assets/birds/${sp.img}.jpg`;
+      }
+      ENGINE.redraw();
+    },
+    /* หลังเพิ่มชนิดใหม่ — สร้างรายชื่อ จุด และ heatmap ใหม่ทั้งหมด */
+    rebuildAll(){
+      MAXN = Math.max(...SPECIES.map(s=>s.f));
+      buildGrid(); rebuild(); refreshGrid(); updateStats();
+      if(state.species) selectSpecies(state.species); else updateCard();
+      ENGINE.redraw();
+    }
+  };
+
+  const V = '5.12.0';
+  /* CDN สำรอง — ถ้าเจ้าแรกช้าหรือโดนบล็อก ลองเจ้าถัดไป */
+  const GL_CDN = [
+    'https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/'+V,
+    'https://cdn.jsdelivr.net/npm/maplibre-gl@'+V+'/dist',
+    'https://unpkg.com/maplibre-gl@'+V+'/dist'
+  ];
+  const TURF = 'https://cdnjs.cloudflare.com/ajax/libs/Turf.js/5.1.6/turf.min.js';
+  const timeout = ms => new Promise((_,rej)=> setTimeout(()=>rej(new Error('timeout')), ms));
+  const boot = m=>{ const b=$('#mapBoot'); if(b && !b.classList.contains('gone')) b.textContent=m; };
+
+  /* Turf ใช้ตัดรูปหลายเหลี่ยม — โหลดแยก ถ้าไม่ได้ก็ยังทำงานต่อ (แค่ไม่ตัดขอบ) */
+  const turfReady = loadAsset('script',{src:TURF, async:true})
+    .catch(e=> console.warn('turf failed', e));
+
+  /* ลองดึงขอบเขตสวนหลายรอบ — ยอมใช้รูปสำรองเฉพาะรอบสุดท้ายเท่านั้น */
+  const PARK_MAX_TRIES = 5;
+  let parkTries = 0;
+  function tryPark(){
+    if(PARK.poly || parkTries >= PARK_MAX_TRIES) return;
+    const last = (++parkTries >= PARK_MAX_TRIES);
+    turfReady.finally(()=> loadParkBoundary(last).catch(err=>{
+      const b = $('#osmBadge');
+      if(b && !PARK.poly)
+        b.textContent = last ? 'ใช้ขอบเขตสวนแบบประมาณการ'
+                             : `กำลังหาขอบเขตสวน… (${parkTries}/${PARK_MAX_TRIES})`;
+      console.warn('park boundary try', parkTries, err && (err.message||err));
+      if(!last && !PARK.poly) setTimeout(tryPark, 2000);
+    }));
+  }
+  /* อย่าเพิ่งดึงขอบเขตสวนตอนเปิดเว็บ — รอแผนที่ขึ้นก่อน ไม่งั้นแย่งแบนด์วิดท์กัน */
+  setTimeout(()=> waitForMap(tryPark), 400);
+
+  /* โหลด MapLibre — ไล่ลอง CDN ทีละเจ้า เจ้าละ 20 วินาที
+     ไม่ตัดไปใช้แผนที่สำรองเพราะแค่ "ช้า" — ตัดต่อเมื่อโหลดไม่ได้จริง ๆ เท่านั้น */
+  (async function bootMap(){
+    for(let i=0; i<GL_CDN.length; i++){
+      const base = GL_CDN[i];
+      boot(i ? `แผนที่โหลดช้า กำลังลองแหล่งสำรอง (${i+1}/${GL_CDN.length})…`
+             : 'กำลังโหลดแผนที่…');
+      try{
+        await Promise.race([
+          Promise.all([
+            loadAsset('link',  {rel:'stylesheet', href:base+'/maplibre-gl.min.css'}),
+            loadAsset('script',{src:base+'/maplibre-gl.min.js', async:true})
+          ]),
+          timeout(20000)
+        ]);
+        if(typeof maplibregl === 'undefined') throw new Error('maplibregl undefined');
+        boot('กำลังโหลดข้อมูลแผนที่…');
+        initGL();
+        /* เตือนถ้าช้าผิดปกติ แต่ไม่สลับไปตัวสำรอง */
+        setTimeout(()=>{ if(!GL.ready) boot('แผนที่โหลดช้ากว่าปกติ กำลังรอต่อ…'); }, 15000);
+        return;
+      }catch(err){
+        console.warn('โหลด MapLibre ไม่สำเร็จจาก', base, err && err.message);
+        if(window.maplibregl) delete window.maplibregl;
+      }
+    }
+    boot('โหลดแผนที่ออนไลน์ไม่ได้ — ใช้แผนที่สำรอง');
+    useFallback();
+  })();
+
+  function useFallback(){
+    if(document.body.classList.contains('svgfb')) return;
+    document.body.classList.add('svgfb');
+    document.body.classList.remove('gl');
+    if(GL.map){ try{ GL.map.remove(); }catch(e){} GL.map=null; }
+    /* offline / blocked → hand-drawn vector park */
+    $('#mapBoot').textContent = 'ออฟไลน์ — ใช้แผนที่เวกเตอร์สำรอง';
+    setTimeout(()=> $('#mapBoot').classList.add('gone'), 2200);
+    ENGINE.redraw = renderHeat;
+    ENGINE.layers = applyLayers;
+    ENGINE.focus  = ()=>{};
+    ENGINE.style  = ()=>{};
+    ENGINE.camera = (k,v)=>{
+      if(k==='tilt') cam.tilt=v; if(k==='rot') cam.rot=v; if(k==='zoom') cam.zoom=v;
+      if(k==='in')   cam.zoom=Math.min(2.2,cam.zoom*1.16);
+      if(k==='out')  cam.zoom=Math.max(.55,cam.zoom/1.16);
+      if(k==='north')cam.rot=0;
+      if(k==='3d')   cam.tilt = cam.tilt>6 ? 0 : 46;
+      if(k==='reset'){cam.x=0;cam.y=0;cam.zoom=.88;cam.tilt=46;cam.rot=0;selectZone('ALL');}
+      applyCam();
+    };
+    applyCam(); applyLayers(); renderHeat();
+    viewport.addEventListener('click', e=>{ if(e.target===viewport) selectZone('ALL'); });
+  }
+})();
+}
+
+})();
+
+/* ==========================================================================
+   9 · ⚙ แผงตั้งค่า — จัดรูปนก · เพิ่มชนิด · อัปเดต eBird
+   --------------------------------------------------------------------------
+   รูปต้นฉบับเก็บใน IndexedDB · ค่าเฟรมและชนิดที่เพิ่มเองเก็บใน localStorage
+   ครอปสด ๆ ตอนแสดงผล ไม่ต้องส่งออกไฟล์ก่อนก็เห็นผลทันที
+   ========================================================================== */
+(function gearPanel(){
+  const $  = s=>document.querySelector(s);
+  const $$ = s=>Array.from(document.querySelectorAll(s));
+  const G = window.BirdMap; if(!G) return;
+  const {SPECIES, ZONES, PREF, GPS_SIGHTINGS, HAB_TH} = G;
+
+  /* ---------- IndexedDB เก็บรูปต้นฉบับ ---------- */
+  let db = null;
+  const idb = ()=> new Promise((res,rej)=>{
+    if(db) return res(db);
+    const r = indexedDB.open('rotfai-birds', 1);
+    r.onupgradeneeded = ()=> r.result.createObjectStore('photos');
+    r.onsuccess = ()=>{ db = r.result; res(db); };
+    r.onerror = ()=> rej(r.error);
+  });
+  const idbPut = async (k,v)=>{ const d=await idb(); return new Promise((res,rej)=>{
+    const t=d.transaction('photos','readwrite'); t.objectStore('photos').put(v,k);
+    t.oncomplete=res; t.onerror=()=>rej(t.error); }); };
+  const idbGet = async k=>{ const d=await idb(); return new Promise((res,rej)=>{
+    const q=d.transaction('photos').objectStore('photos').get(k);
+    q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); }); };
+  const idbKeys = async ()=>{ const d=await idb(); return new Promise((res,rej)=>{
+    const q=d.transaction('photos').objectStore('photos').getAllKeys();
+    q.onsuccess=()=>res(q.result||[]); q.onerror=()=>rej(q.error); }); };
+
+  /* ---------- ที่เก็บค่า ---------- */
+  const LS = {
+    get cfg(){ try{ return JSON.parse(localStorage.getItem('bm.cfg')||'{}'); }catch(e){ return {}; } },
+    set cfg(v){ localStorage.setItem('bm.cfg', JSON.stringify(v)); },
+    get extra(){ try{ return JSON.parse(localStorage.getItem('bm.extra')||'[]'); }catch(e){ return []; } },
+    set extra(v){ localStorage.setItem('bm.extra', JSON.stringify(v)); }
+  };
+  let CFG = LS.cfg;
+
+  const toast = m=>{ const t=$('#toast'); t.textContent=m; t.classList.add('on');
+    clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('on'),2400); };
+
+  /* ---------- EXIF: วันเวลา + GPS ---------- */
+  function readExif(buf){
+    const v = new DataView(buf); let o = 2;
+    if(v.getUint16(0) !== 0xFFD8) return null;
+    while(o < v.byteLength - 4){
+      const mk = v.getUint16(o);
+      if(mk !== 0xFFE1){ if((mk & 0xFF00) !== 0xFF00) return null; o += 2 + v.getUint16(o+2); continue; }
+      if(v.getUint32(o+4) !== 0x45786966) return null;
+      const tiff = o + 10, le = v.getUint16(tiff) === 0x4949;
+      const U16=p=>v.getUint16(p,le), U32=p=>v.getUint32(p,le);
+      const out = {};
+      function walk(dir, into){
+        const n = U16(dir);
+        for(let i=0;i<n;i++){
+          const e=dir+2+i*12, tag=U16(e), type=U16(e+2), cnt=U32(e+4);
+          const sz=({1:1,2:1,3:2,4:4,5:8,7:1,9:4,10:8})[type]||1, total=sz*cnt;
+          const val = total>4 ? tiff+U32(e+8) : e+8;
+          if(type===2){ let s=''; for(let k=0;k<cnt-1;k++) s+=String.fromCharCode(v.getUint8(val+k)); into[tag]=s; }
+          else if(type===5||type===10){ const a=[]; for(let k=0;k<cnt;k++){
+            const d2=U32(val+k*8+4); a.push(d2?U32(val+k*8)/d2:0);} into[tag]=a; }
+          else if(type===3) into[tag]=U16(val);
+          else if(type===4) into[tag]=U32(val);
+        }
+      }
+      const ifd0={}; walk(tiff+U32(tiff+4), ifd0);
+      if(ifd0[0x8769]){ const ex={}; walk(tiff+ifd0[0x8769], ex); out.dt = ex[0x9003]||ex[0x9004]||null; }
+      if(ifd0[0x8825]){ const g={}; walk(tiff+ifd0[0x8825], g);
+        if(g[2]&&g[4]){ const dm=a=>a[0]+a[1]/60+a[2]/3600;
+          out.lat=dm(g[2])*(g[1]==='S'?-1:1); out.lon=dm(g[4])*(g[3]==='W'?-1:1); } }
+      return out;
+    }
+    return null;
+  }
+
+  window.__readExif = readExif;   /* ให้ฟอร์มเพิ่มการพบเห็นเรียกใช้ได้ */
+
+  /* ---------- state ของ editor ---------- */
+  const PHOTOS = [];            /* {name, url, exif} */
+  let curSp = SPECIES[0] ? SPECIES[0].id : null, curFrame='av', img=null, SW=0, SH=0;
+  const AV = 400;
+  const D = ()=> CFG[curSp] || (CFG[curSp] = {file:null, av:{cx:.5,cy:.5,z:1}, card:{cx:.5,cy:.5,z:1}});
+  const F = ()=> D()[curFrame];
+
+  /* ---------- ครอปสด ---------- */
+  function drawFrame(ctx, im, f, w, h){
+    const ar=w/h, iw=im.naturalWidth||im.width, ih=im.naturalHeight||im.height;
+    let hh=Math.min(iw,ih)/f.z, ww=hh*ar;
+    if(ww>iw){ ww=iw; hh=ww/ar; }
+    if(hh>ih){ hh=ih; ww=hh*ar; }
+    let x=f.cx*iw-ww/2, y=f.cy*ih-hh/2;
+    x=Math.max(0,Math.min(iw-ww,x)); y=Math.max(0,Math.min(ih-hh,y));
+    ctx.clearRect(0,0,w,h); ctx.drawImage(im,x,y,ww,hh,0,0,w,h);
+    return {x,y,w:ww,h:hh};
+  }
+  const loadImg = src=> new Promise(res=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=()=>res(null); i.src=src; });
+
+  async function renderCrops(id){
+    const c = CFG[id]; if(!c || !c.file) return false;
+    const blob = await idbGet(c.file); if(!blob) return false;
+    const url = URL.createObjectURL(blob);
+    const im = await loadImg(url);
+    if(!im){ URL.revokeObjectURL(url); return false; }
+    const sp = SPECIES.find(s=>s.id===id); if(!sp){ URL.revokeObjectURL(url); return false; }
+    for(const [key,f,w,h] of [['avURL',c.av,AV,AV],['heroURL',c.card,1400,1050]]){
+      const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+      drawFrame(cv.getContext('2d'), im, f, w, h);
+      const b = await new Promise(r=>cv.toBlob(r,'image/jpeg',.9));
+      if(sp[key]) URL.revokeObjectURL(sp[key]);
+      sp[key] = URL.createObjectURL(b);
+    }
+    URL.revokeObjectURL(url);
+    return true;
+  }
+
+  async function applyAll(){
+    let n=0;
+    for(const id of Object.keys(CFG)) if(await renderCrops(id)) n++;
+    if(n){ G.refreshArt(); }
+    return n;
+  }
+
+  /* ---------- โหลดรูปเข้า IndexedDB ---------- */
+  async function ingest(fileList){
+    const files = Array.from(fileList).filter(f=>/\.jpe?g$/i.test(f.name));
+    if(!files.length){ toast('ไม่พบไฟล์ JPG ในโฟลเดอร์นี้'); return; }
+    $('#gearStat').textContent = `กำลังอ่าน ${files.length} ไฟล์…`;
+    let k=0, added=0;
+    for(const f of files){
+      k++;
+      if(PHOTOS.some(p=>p.name===f.name)) continue;   /* ไม่ซ้ำ */
+      try{
+        await idbPut(f.name, f);
+        let ex=null;
+        try{ ex = readExif(await f.slice(0,196608).arrayBuffer()); }catch(err){}
+        PHOTOS.push({name:f.name, url:URL.createObjectURL(f), exif:ex});
+        added++;
+      }catch(err){ console.warn('เก็บรูปไม่ได้', f.name, err); }
+      if(k % 20 === 0){
+        $('#gearStat').textContent = `กำลังอ่าน ${k}/${files.length}…`;
+        await new Promise(r=>setTimeout(r));   /* ปล่อยให้ UI อัปเดต */
+      }
+    }
+    PHOTOS.sort((a,b)=> a.name.localeCompare(b.name));
+    renderPhotos(); updGearStat();
+    toast(added ? `เพิ่ม ${added} รูป (รวม ${PHOTOS.length} รูป)` : 'รูปเหล่านี้มีอยู่แล้ว');
+  }
+  $('#pPick').addEventListener('change',  e=>{ ingest(e.target.files); e.target.value=''; });
+  $('#pPick2').addEventListener('change', e=>{ ingest(e.target.files); e.target.value=''; });
+  $('#pPickFolder').addEventListener('click', ()=> $('#pPick').click());
+  $('#pPickFiles').addEventListener('click',  ()=> $('#pPick2').click());
+
+  /* ลากไฟล์มาวางก็ได้ */
+  const edit = $('#pEdit');
+  ['dragenter','dragover'].forEach(ev=> edit.addEventListener(ev, e=>{
+    e.preventDefault(); edit.style.outline='2px dashed #6FC077'; }));
+  ['dragleave','drop'].forEach(ev=> edit.addEventListener(ev, e=>{
+    e.preventDefault(); edit.style.outline=''; }));
+  edit.addEventListener('drop', e=>{ if(e.dataTransfer.files.length) ingest(e.dataTransfer.files); });
+
+  async function restorePhotos(){
+    let keys=[]; try{ keys = await idbKeys(); }catch(e){ return; }
+    for(const k of keys){
+      const b = await idbGet(k); if(!b) continue;
+      let ex=null; try{ ex = readExif(await b.slice(0,196608).arrayBuffer()); }catch(e){}
+      PHOTOS.push({name:k, url:URL.createObjectURL(b), exif:ex});
+    }
+    renderPhotos(); updGearStat();
+  }
+
+  function updGearStat(){
+    const gps = PHOTOS.filter(p=>p.exif&&p.exif.lat).length;
+    $('#gearStat').textContent = PHOTOS.length
+      ? `${PHOTOS.length} รูปในเครื่อง · มี GPS ${gps}` : 'ยังไม่ได้โหลดรูป';
+    $('#pCount').textContent = `(${PHOTOS.length})`;
+  }
+
+  /* ---------- รายชื่อชนิด ---------- */
+  function renderList(){
+    $('#pList').innerHTML = SPECIES.map(sp=>{
+      const c = CFG[sp.id];
+      const src = sp.avURL || `assets/birds/${sp.img}_av.jpg`;
+      return `<div class="pitem ${sp.id===curSp?'on':''} ${c&&c.file?'done':''}" data-id="${sp.id}">
+        <img src="${src}" alt=""><span class="tx"><b>${sp.th}</b><small>${sp.en}</small></span><i></i></div>`;
+    }).join('');
+    $$('#pList .pitem').forEach(el=> el.addEventListener('click', ()=>{
+      curSp = el.dataset.id; renderList(); loadCur();
+    }));
+    $('#pDone').textContent = `(${Object.values(CFG).filter(c=>c.file).length}/${SPECIES.length})`;
+  }
+
+  /* ---------- รูปในโฟลเดอร์ ---------- */
+  function renderPhotos(){
+    const q = ($('#pSearch').value||'').toLowerCase();
+    const cur = D().file;
+    $('#pGrid').innerHTML = PHOTOS.filter(p=>!q||p.name.toLowerCase().includes(q)).map(p=>
+      `<div class="pth ${p.name===cur?'on':''}" data-n="${p.name}"><img src="${p.url}" loading="lazy" alt="">
+       ${p.exif&&p.exif.lat?'<i>GPS</i>':''}</div>`).join('');
+    $$('#pGrid .pth').forEach(el=> el.addEventListener('click', ()=>{
+      const d=D();
+      if(d.file!==el.dataset.n){ d.file=el.dataset.n; d.av={cx:.5,cy:.5,z:1}; d.card={cx:.5,cy:.5,z:1}; }
+      loadCur();
+    }));
+  }
+  $('#pSearch').addEventListener('input', renderPhotos);
+
+  async function loadCur(){
+    const d=D();
+    if(!d.file){ $('#pStage').hidden=true; $('#pEmpty').hidden=false;
+      $('#pMeta').textContent='ยังไม่ได้เลือกรูป'; renderPhotos(); return; }
+    const p = PHOTOS.find(x=>x.name===d.file);
+    if(!p){ $('#pStage').hidden=true; $('#pEmpty').hidden=false; return; }
+    img = await loadImg(p.url); if(!img) return;
+    $('#pEmpty').hidden=true; $('#pStage').hidden=false;
+    fitStage(); draw(); renderPhotos();
+    const e = p.exif||{};
+    $('#pMeta').innerHTML = `<b>${p.name}</b> · ${img.naturalWidth}×${img.naturalHeight}<br>`+
+      (e.dt?`ถ่ายเมื่อ ${e.dt}<br>`:'')+
+      (e.lat?`GPS <b>${e.lat.toFixed(5)}, ${e.lon.toFixed(5)}</b>`:`<span class="w">ไม่มีพิกัด GPS</span>`);
+  }
+
+  function fitStage(){
+    const b=$('#pEdit').getBoundingClientRect();
+    const r=Math.min((b.width-44)/img.naturalWidth,(b.height-44)/img.naturalHeight,1);
+    SW=Math.round(img.naturalWidth*r); SH=Math.round(img.naturalHeight*r);
+    const cv=$('#pCv'); cv.width=SW; cv.height=SH;
+    const m=$('#pMask'); m.setAttribute('viewBox',`0 0 ${SW} ${SH}`);
+    m.style.width=SW+'px'; m.style.height=SH+'px';
+  }
+
+  function draw(){
+    if(!img) return;
+    const ctx=$('#pCv').getContext('2d');
+    ctx.clearRect(0,0,SW,SH); ctx.drawImage(img,0,0,SW,SH);
+    const sc=SW/img.naturalWidth;
+    const tmp=document.createElement('canvas').getContext('2d');
+    const rAv=drawFrame(tmp,img,D().av,AV,AV), rCard=drawFrame(tmp,img,D().card,800,600);
+    const on = curFrame==='av'?rAv:rCard, off = curFrame==='av'?rCard:rAv;
+    const cx=(on.x+on.w/2)*sc, cy=(on.y+on.h/2)*sc;
+    $('#pMask').innerHTML = `
+      <defs><mask id="gmk"><rect width="${SW}" height="${SH}" fill="#fff"/>
+      ${curFrame==='av'
+        ? `<circle cx="${cx}" cy="${cy}" r="${on.w*sc/2}" fill="#000"/>`
+        : `<rect x="${on.x*sc}" y="${on.y*sc}" width="${on.w*sc}" height="${on.h*sc}" rx="8" fill="#000"/>`}
+      </mask></defs>
+      <rect width="${SW}" height="${SH}" fill="rgba(4,9,6,.72)" mask="url(#gmk)"/>
+      <rect x="${off.x*sc}" y="${off.y*sc}" width="${off.w*sc}" height="${off.h*sc}" rx="6"
+            fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1" stroke-dasharray="5 4"/>
+      ${curFrame==='av'
+        ? `<circle cx="${cx}" cy="${cy}" r="${on.w*sc/2}" fill="none" stroke="#6FC077" stroke-width="2"/>`
+        : `<rect x="${on.x*sc}" y="${on.y*sc}" width="${on.w*sc}" height="${on.h*sc}" rx="8"
+                 fill="none" stroke="#6FC077" stroke-width="2"/>`}`;
+    drawFrame($('#pvAv').getContext('2d'), img, D().av, AV, AV);
+    drawFrame($('#pvCard').getContext('2d'), img, D().card, 800, 600);
+    $('#pZoom').value = Math.round(F().z*100);
+    $('#pZoomV').textContent = F().z.toFixed(2)+'×';
+  }
+
+  /* ---------- ควบคุม editor ---------- */
+  $$('#pFrame button').forEach(b=> b.addEventListener('click', ()=>{
+    $$('#pFrame button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); curFrame=b.dataset.f; draw(); }));
+  $('#pZoom').addEventListener('input', e=>{ F().z=+e.target.value/100; draw(); });
+  $('#pFit').addEventListener('click', ()=>{ F().cx=.5; F().cy=.5; F().z=1; draw(); });
+
+  let drag=false, px=0, py=0;
+  const stage=$('#pStage');
+  stage.addEventListener('pointerdown', e=>{ if(!img) return;
+    drag=true; px=e.clientX; py=e.clientY; stage.classList.add('drag'); stage.setPointerCapture(e.pointerId); });
+  stage.addEventListener('pointermove', e=>{ if(!drag) return;
+    const sc=SW/img.naturalWidth;
+    F().cx = Math.max(0,Math.min(1, F().cx-(e.clientX-px)/sc/img.naturalWidth));
+    F().cy = Math.max(0,Math.min(1, F().cy-(e.clientY-py)/sc/img.naturalHeight));
+    px=e.clientX; py=e.clientY; draw(); });
+  ['pointerup','pointercancel'].forEach(ev=> stage.addEventListener(ev, ()=>{
+    drag=false; stage.classList.remove('drag'); }));
+  stage.addEventListener('wheel', e=>{ if(!img) return; e.preventDefault();
+    F().z=Math.max(.2,Math.min(4, F().z*(e.deltaY>0?.93:1.075))); draw(); }, {passive:false});
+
+  $('#pAuto').addEventListener('click', ()=>{
+    if(!img) return;
+    const N=160, c=document.createElement('canvas');
+    c.width=N; c.height=Math.round(N*img.naturalHeight/img.naturalWidth);
+    const g=c.getContext('2d'); g.drawImage(img,0,0,c.width,c.height);
+    const d=g.getImageData(0,0,c.width,c.height).data;
+    const gr=new Float32Array(c.width*c.height);
+    for(let i=0;i<gr.length;i++) gr[i]=d[i*4]*.3+d[i*4+1]*.59+d[i*4+2]*.11;
+    let best=0,bx=.5,by=.5, R=6;
+    for(let y=R;y<c.height-R;y++) for(let x=R;x<c.width-R;x++){
+      let s=0;
+      for(let k=-R;k<=R;k+=2){
+        s+=Math.abs(gr[y*c.width+x]-gr[y*c.width+x+k]);
+        s+=Math.abs(gr[y*c.width+x]-gr[(y+k)*c.width+x]);
+      }
+      if(s>best){ best=s; bx=x/c.width; by=y/c.height; }
+    }
+    F().cx=bx; F().cy=by; draw(); toast('ย้ายไปจุดที่คมที่สุดแล้ว');
+  });
+
+  /* ---------- ใช้รูปนี้ ---------- */
+  $('#pApply').addEventListener('click', async ()=>{
+    const d=D(); if(!d.file){ toast('ยังไม่ได้เลือกรูป'); return; }
+    const p = PHOTOS.find(x=>x.name===d.file);
+    const e = (p&&p.exif)||{};
+    d.dt = e.dt||null; d.lat = e.lat||null; d.lon = e.lon||null;
+    LS.cfg = CFG;
+    await renderCrops(curSp);
+    /* ถ้ามี GPS และอยู่ในเขตสวน เพิ่มเป็นจุดพบจริง */
+    let msg = 'อัปเดตรูปแล้ว';
+    if(e.lat && G.inPark([e.lon,e.lat])){
+      const dup = GPS_SIGHTINGS.some(g=>g.sp===curSp &&
+        Math.abs(g.lat-e.lat)<2e-5 && Math.abs(g.lon-e.lon)<2e-5);
+      if(!dup){
+        GPS_SIGHTINGS.push({sp:curSp, lat:e.lat, lon:e.lon,
+          dt:(e.dt||'').slice(0,10).replace(/:/g,'-'), n:1, f:d.file});
+        msg += ' + เพิ่มจุดพบจริงจาก GPS';
+      }
+    } else if(e.lat){ msg += ' (พิกัดอยู่นอกเขตสวน ไม่นับเป็นจุดพบ)'; }
+    G.refreshArt(); renderList(); toast(msg);
+  });
+
+  /* ---------- เพิ่มชนิดนก ---------- */
+  const zSel = new Set();
+  $$('#fZones button').forEach(b=> b.addEventListener('click', ()=>{
+    const z=b.dataset.z;
+    if(zSel.has(z)) zSel.delete(z); else zSel.add(z);
+    b.classList.toggle('on', zSel.has(z));
+  }));
+  const slugify = s=> 'sp-' + (s||'').trim().toLowerCase()
+    .replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,28) + '-' + Date.now().toString(36).slice(-4);
+
+  function listExtra(){
+    const ex = LS.extra;
+    $('#fList').innerHTML = ex.length
+      ? 'ชนิดที่เพิ่มเอง: ' + ex.map(s=>`<b style="color:#BFE8C4">${s.th}</b>`).join(' · ')
+      : 'ยังไม่ได้เพิ่มชนิดใหม่';
+  }
+
+  $('#fSave').addEventListener('click', ()=>{
+    const th=$('#fTh').value.trim(), en=$('#fEn').value.trim();
+    if(!th || !en){ toast('ต้องกรอกชื่อไทยและชื่ออังกฤษ'); return; }
+    if(!zSel.size){ toast('ต้องเลือกโซนอย่างน้อยหนึ่งโซน'); return; }
+    const hab = {}; [['water','hWater'],['canopy','hCanopy'],['lawn','hLawn'],
+                    ['scrub','hScrub'],['path','hPath']].forEach(([k,id])=>{
+      const v=+$('#'+id).value; if(v>0) hab[k]=v/100; });
+    if(!Object.keys(hab).length) hab.lawn = .6;
+    const sp = {
+      id: slugify(en), th, en, sci:$('#fSci').value.trim()||'—',
+      g: $('#fGroup').value, z:[...zSel].sort(), f: Math.max(1,+$('#fCount').value||10),
+      img:'', shot:'เพิ่มเอง',
+      beh: $('#fBeh').value.trim() || 'ยังไม่ได้บันทึกพฤติกรรม',
+      where: $('#fWhere').value.trim() || 'ยังไม่ได้ระบุตำแหน่ง',
+      custom:true, hab
+    };
+    const ex = LS.extra; ex.push(sp); LS.extra = ex;
+    SPECIES.push(sp); PREF[sp.id] = hab;
+    G.rebuildAll(); renderList(); listExtra();
+    toast(`เพิ่ม “${th}” แล้ว — ไปแท็บจัดรูปนกเพื่อใส่รูป`);
+    $('#fTh').value=$('#fEn').value=$('#fSci').value=$('#fBeh').value=$('#fWhere').value='';
+    zSel.clear(); $$('#fZones button').forEach(b=>b.classList.remove('on'));
+  });
+  $('#fClear').addEventListener('click', ()=>{
+    ['fTh','fEn','fSci','fBeh','fWhere'].forEach(id=>$('#'+id).value='');
+    zSel.clear(); $$('#fZones button').forEach(b=>b.classList.remove('on'));
+  });
+
+  /* ---------- ข้อมูล eBird ---------- */
+  function updData(){
+    const st = G.ebStats();
+    $('#dSpecies').textContent = SPECIES.filter(s=>s.days!=null).length;
+    $('#dBirds').textContent   = SPECIES.reduce((a,s)=>a+s.f,0).toLocaleString('th-TH');
+    $('#dDays').textContent    = st ? st.dataDays : 0;
+    let n=0; for(let i=0;i<localStorage.length;i++)
+      if((localStorage.key(i)||'').startsWith('eb:')) n++;
+    $('#dCache').textContent = n;
+    const rows = SPECIES.filter(s=>s.days!=null)
+      .sort((a,b)=>b.f-a.f)
+      .map(s=>`${String(s.f).padStart(5)}  ${String(s.days||0).padStart(3)} วัน  `+
+              `${String(Math.round((s.freq||0)*100)).padStart(3)}%   ${s.th}`);
+    $('#dLog').textContent = rows.length
+      ? ' ตัว   วันที่เจอ  ความถี่   ชนิด\n' + rows.join('\n')
+      : 'ยังไม่ได้ดึงข้อมูล';
+  }
+  $('#dRefresh').addEventListener('click', async ()=>{
+    $('#dLog').textContent='กำลังดึงข้อมูล…'; await G.runEbird(); updData(); toast('อัปเดตเรียบร้อย');
+  });
+  $('#dForce').addEventListener('click', async ()=>{
+    const del=[]; for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i); if(k && k.startsWith('eb:')) del.push(k); }
+    del.forEach(k=>localStorage.removeItem(k));
+    toast(`ล้าง ${del.length} วันแล้ว กำลังดึงใหม่…`);
+    $('#dLog').textContent='กำลังดึงใหม่ทั้งหมด…'; await G.runEbird(); updData();
+  });
+  $('#dExport').addEventListener('click', ()=>{
+    const rows = [['ชื่อไทย','ชื่ออังกฤษ','ชื่อวิทยาศาสตร์','จำนวนตัว','วันที่เจอ','ความถี่%','สูงสุดต่อวัน','โซน']];
+    SPECIES.forEach(s=> rows.push([s.th,s.en,s.sci,s.f,s.days||'',
+      s.freq!=null?Math.round(s.freq*100):'', s.maxDay||'', s.z.join(' ')]));
+    const csv='﻿'+rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+    a.download='rotfai-birds.csv'; a.click(); toast('ส่งออก CSV แล้ว');
+  });
+
+  /* ---------- เผยแพร่ ---------- */
+  const ulog = m=>{ const el=$('#uLog');
+    el.textContent = (el.textContent==='ยังไม่ได้ส่งออก'?'':el.textContent+'\n') + m;
+    el.scrollTop = el.scrollHeight; };
+
+  $('#uExportImg').addEventListener('click', async ()=>{
+    const jobs = SPECIES.filter(sp=> CFG[sp.id] && CFG[sp.id].file);
+    if(!jobs.length){ toast('ยังไม่ได้ตั้งรูปให้ชนิดไหนเลย'); return; }
+    $('#uExportImg').disabled = true;
+    ulog(`เริ่มส่งออก ${jobs.length} ชนิด (${jobs.length*2} ไฟล์)`);
+    let n=0;
+    for(const sp of jobs){
+      const c = CFG[sp.id];
+      const blob = await idbGet(c.file); if(!blob){ ulog(`ข้าม ${sp.th} — ไม่พบไฟล์`); continue; }
+      const url = URL.createObjectURL(blob), im = await loadImg(url);
+      if(!im){ URL.revokeObjectURL(url); continue; }
+      for(const [suf,f,w,h] of [['_av',c.av,AV,AV],['',c.card,1600,1200]]){
+        const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+        drawFrame(cv.getContext('2d'), im, f, w, h);
+        const b=await new Promise(r=>cv.toBlob(r,'image/jpeg',.88));
+        const a=document.createElement('a');
+        a.href=URL.createObjectURL(b); a.download=`${sp.id}${suf}.jpg`; a.click();
+        await new Promise(r=>setTimeout(r,150));
+      }
+      URL.revokeObjectURL(url);
+      ulog(`  ${++n}/${jobs.length}  ${sp.th}`);
+    }
+    $('#uExportImg').disabled = false;
+    ulog('เสร็จแล้ว — เอาไปวางทับในโฟลเดอร์ assets/birds/');
+    toast('ส่งออกรูปครบแล้ว');
+  });
+
+  $('#uExportData').addEventListener('click', ()=>{
+    const st = G.ebStats();
+    const data = {
+      generated: new Date().toISOString(),
+      note: 'อบจากแผงตั้งค่าของ Rot Fai Park Bird Map — วางไฟล์นี้ข้าง index.html',
+      ebird: {
+        loc:'L990195', from:'2026-01-01',
+        upTo: new Date().toISOString().slice(0,10),   /* เว็บจะเติมวันหลังจากนี้ให้เอง */
+        dataDays: st ? st.dataDays : null
+      },
+      species: SPECIES.map(sp=>({
+        id:sp.id, th:sp.th, en:sp.en, sci:sp.sci, g:sp.g, z:sp.z, f:sp.f,
+        days:sp.days??null, freq:sp.freq??null, maxDay:sp.maxDay??null,
+        img:sp.img||sp.id, shot:sp.shot, beh:sp.beh, where:sp.where,
+        custom:!!sp.custom, hab:PREF[sp.id]||null
+      })),
+      sightings: GPS_SIGHTINGS,
+      park: (G.parkPoly && G.parkPoly()) || null
+    };
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,1)],{type:'application/json'}));
+    a.download='data.json'; a.click();
+    ulog(`ส่งออก data.json — ${data.species.length} ชนิด · ${data.sightings.length} จุดพบจริง`);
+    toast('ส่งออก data.json แล้ว');
+  });
+
+  const HIDE_KEY = 'bm.hideGear';
+  $('#uHide').checked = localStorage.getItem(HIDE_KEY) === '1';
+  $('#uHide').addEventListener('change', e=>{
+    localStorage.setItem(HIDE_KEY, e.target.checked ? '1' : '0');
+    toast(e.target.checked
+      ? 'ซ่อนแล้ว — กลับเข้ามาแก้ได้โดยเติม ?edit ต่อท้าย URL'
+      : 'แสดงปุ่มฟันเฟืองตามปกติ');
+  });
+
+  /* ---------- เปิด/ปิดแผง ---------- */
+  const sheet=$('#sheet');
+  $('#btnGear').addEventListener('click', ()=>{
+    sheet.classList.add('on'); renderList(); loadCur(); listExtra(); updData();
+    if(!PHOTOS.length) restorePhotos();
+  });
+  $('#sheetClose').addEventListener('click', ()=> sheet.classList.remove('on'));
+  sheet.addEventListener('click', e=>{ if(e.target===sheet) sheet.classList.remove('on'); });
+  window.addEventListener('keydown', e=>{ if(e.key==='Escape') sheet.classList.remove('on'); });
+  $$('#sheetTabs button').forEach(b=> b.addEventListener('click', ()=>{
+    $$('#sheetTabs button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    $$('.spane').forEach(p=>p.classList.remove('on'));
+    $('#pane'+b.dataset.p).classList.add('on');
+    if(b.dataset.p==='Data') updData();
+    if(b.dataset.p==='Photo' && img){ fitStage(); draw(); }
+  }));
+  $('#pEmpty').addEventListener('click', ()=> $('#pPick').click());
+  $('#pEdit').addEventListener('dblclick', ()=> { if(!img) $('#pPick').click(); });
+
+  /* ---------- ซ่อนปุ่มฟันเฟืองสำหรับผู้เข้าชม ---------- */
+  (function gateGear(){
+    const forced = /(\?|&)edit\b/.test(location.search);
+    if(forced) localStorage.setItem(HIDE_KEY, '0');
+    if(localStorage.getItem(HIDE_KEY) === '1' && !forced)
+      $('#btnGear').style.display = 'none';
+  })();
+
+  /* ---------- เริ่มต้น: กู้ชนิดที่เพิ่มเอง + รูปที่เคยตั้งไว้ ---------- */
+  (async function boot(){
+    const ex = LS.extra;
+    ex.forEach(sp=>{
+      if(SPECIES.some(s=>s.id===sp.id)) return;
+      SPECIES.push(sp); PREF[sp.id] = sp.hab || {lawn:.6};
+    });
+    if(ex.length) G.rebuildAll();
+    const n = await applyAll();
+    if(n) console.info('ใช้รูปที่ตั้งค่าไว้', n, 'ชนิด');
+  })();
+})();
+
+
+/* ==========================================================================
+   10 · คลาวด์ (Supabase) — ข้อมูลชุดเดียวกันสำหรับทุกคนที่มีลิงก์
+   -------------------------------------------------------------------------- */
+(function cloud(){
+  const $  = s=>document.querySelector(s);
+  const $$ = s=>Array.from(document.querySelectorAll(s));
+  const G = window.BirdMap; if(!G) return;
+  const {SPECIES, PREF, GPS_SIGHTINGS} = G;
+
+  /* ---- ตั้งค่า: ฝังไว้ในไฟล์ได้เลย หรือกรอกผ่านแผงคลาวด์ ---- */
+  const BAKED = { url:'', key:'', pass:'', allowAdd:true };   /* ← แก้ตรงนี้ตอนเผยแพร่ก็ได้ */
+  const LSK = 'bm.cloud';
+  const load = ()=>{ try{ return Object.assign({}, BAKED, JSON.parse(localStorage.getItem(LSK)||'{}')); }
+                     catch(e){ return Object.assign({}, BAKED); } };
+  let C = load();
+  const save = ()=> localStorage.setItem(LSK, JSON.stringify(C));
+  const ready = ()=> !!(C.url && C.key);
+
+  const toast = m=>{ const t=$('#toast'); t.textContent=m; t.classList.add('on');
+    clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('on'),2600); };
+  const clog = m=>{ const el=$('#cLog');
+    el.textContent = (el.textContent==='ยังไม่ได้เชื่อมต่อ'?'':el.textContent+'\n')+m;
+    el.scrollTop = el.scrollHeight; };
+
+  const hdr = extra => Object.assign({apikey:C.key, Authorization:'Bearer '+C.key}, extra||{});
+  const api = (path, opt)=> fetch(C.url.replace(/\/+$/,'') + path, opt);
+
+  async function sel(table, q){
+    const r = await api(`/rest/v1/${table}?select=*${q||''}`, {headers:hdr()});
+    if(!r.ok) throw new Error(table+' '+r.status+' '+(await r.text()).slice(0,120));
+    return r.json();
+  }
+  async function ins(table, rows){
+    const r = await api(`/rest/v1/${table}`, {method:'POST',
+      headers:hdr({'Content-Type':'application/json', Prefer:'return=representation,resolution=merge-duplicates'}),
+      body:JSON.stringify(rows)});
+    if(!r.ok) throw new Error(table+' '+r.status+' '+(await r.text()).slice(0,160));
+    return r.json();
+  }
+  async function upload(path, blob){
+    const r = await api(`/storage/v1/object/bird-photos/${path}`, {method:'POST',
+      headers:hdr({'Content-Type':blob.type||'image/jpeg','x-upsert':'true'}), body:blob});
+    if(!r.ok) throw new Error('upload '+r.status);
+    return `${C.url.replace(/\/+$/,'')}/storage/v1/object/public/bird-photos/${path}`;
+  }
+
+  /* ---------- ดึงข้อมูลลงมา ---------- */
+  async function pull(quiet){
+    if(!ready()) return false;
+    let sp, si;
+    try{ [sp, si] = await Promise.all([sel('species'), sel('sightings')]); }
+    catch(e){ if(!quiet) clog('ดึงไม่สำเร็จ — '+e.message); return false; }
+
+    let addedSp=0, addedSi=0;
+    sp.forEach(r=>{
+      let s = SPECIES.find(x=>x.id===r.id);
+      if(!s){
+        s = {id:r.id, th:r.th, en:r.en||'', sci:r.sci||'—', g:r.g||'insect',
+             z:r.z||['A'], f:r.f||1, img:r.id, shot:'จากคลาวด์',
+             beh:r.beh||'', where:r.where_txt||'', custom:true};
+        SPECIES.push(s); addedSp++;
+      }
+      if(r.hab) PREF[r.id] = r.hab;
+      if(r.av_url)  s.avURL   = r.av_url;
+      if(r.img_url) s.heroURL = r.img_url;
+    });
+    si.forEach(r=>{
+      if(!SPECIES.some(x=>x.id===r.species_id)) return;
+      if(GPS_SIGHTINGS.some(g=> g.sp===r.species_id &&
+        Math.abs(g.lat-r.lat)<2e-5 && Math.abs(g.lon-r.lon)<2e-5)) return;
+      GPS_SIGHTINGS.push({sp:r.species_id, lat:r.lat, lon:r.lon,
+        dt:r.observed_at||'', n:r.n||1, f:r.photo_url||'', by:r.by_name||'', note:r.note||''});
+      addedSi++;
+    });
+    if(addedSp || addedSi) G.rebuildAll();
+    if(!quiet) clog(`ดึงลงมาแล้ว — ชนิด ${sp.length} (ใหม่ ${addedSp}) · จุดพบ ${si.length} (ใหม่ ${addedSi})`);
+    return true;
+  }
+
+  /* ---------- อัปโหลดทุกอย่างขึ้นไป ---------- */
+  async function push(){
+    if(!ready()){ toast('ยังไม่ได้ใส่ URL กับ key'); return; }
+    $('#cPush').disabled = true;
+    try{
+      clog('เริ่มอัปโหลด…');
+      /* 1. รูป */
+      const urls = {};
+      for(const sp of SPECIES){
+        for(const [k,suf] of [['avURL','_av'],['heroURL','']]){
+          if(!sp[k] || !sp[k].startsWith('blob:')) continue;
+          const b = await (await fetch(sp[k])).blob();
+          urls[sp.id] = urls[sp.id] || {};
+          urls[sp.id][k] = await upload(`${sp.id}${suf}.jpg`, b);
+          clog(`  รูป ${sp.th}${suf?' (วงกลม)':''}`);
+        }
+      }
+      /* 2. ชนิด */
+      const rows = SPECIES.map(sp=>({
+        id:sp.id, th:sp.th, en:sp.en, sci:sp.sci, g:sp.g, z:sp.z, f:sp.f,
+        beh:sp.beh, where_txt:sp.where, hab:PREF[sp.id]||null,
+        av_url:(urls[sp.id]||{}).avURL || null,
+        img_url:(urls[sp.id]||{}).heroURL || null
+      }));
+      await ins('species', rows);
+      clog(`  ชนิดนก ${rows.length} รายการ`);
+      /* 3. จุดพบ */
+      const cloudSi = await sel('sightings');
+      const fresh = GPS_SIGHTINGS.filter(g=> !cloudSi.some(r=>
+        r.species_id===g.sp && Math.abs(r.lat-g.lat)<2e-5 && Math.abs(r.lon-g.lon)<2e-5));
+      if(fresh.length){
+        await ins('sightings', fresh.map(g=>({
+          species_id:g.sp, lat:g.lat, lon:g.lon, n:g.n||1,
+          observed_at:/^\d{4}-\d{2}-\d{2}$/.test(g.dt||'')?g.dt:null,
+          note:g.note||null, by_name:g.by||'ทีมสำรวจ'})));
+      }
+      clog(`  จุดพบใหม่ ${fresh.length} จุด`);
+      clog('อัปโหลดเสร็จแล้ว — เปิดลิงก์จากเครื่องอื่นจะเห็นข้อมูลชุดนี้');
+      toast('อัปโหลดขึ้นคลาวด์เรียบร้อย');
+    }catch(e){ clog('ผิดพลาด — '+e.message); toast('อัปโหลดไม่สำเร็จ'); }
+    $('#cPush').disabled = false;
+  }
+
+  /* ---------- แผงตั้งค่าคลาวด์ ---------- */
+  function fillCloudForm(){
+    $('#cUrl').value = C.url||''; $('#cKey').value = C.key||'';
+    $('#cPass').value = C.pass||''; $('#cAllowAdd').checked = C.allowAdd !== false;
+  }
+  ['cUrl','cKey','cPass'].forEach(id=> $('#'+id).addEventListener('change', ()=>{
+    C.url = $('#cUrl').value.trim(); C.key = $('#cKey').value.trim();
+    C.pass = $('#cPass').value.trim(); save(); syncFab();
+  }));
+  $('#cAllowAdd').addEventListener('change', e=>{ C.allowAdd = e.target.checked; save(); syncFab(); });
+
+  $('#cTest').addEventListener('click', async ()=>{
+    C.url = $('#cUrl').value.trim(); C.key = $('#cKey').value.trim(); save();
+    if(!ready()){ toast('กรอกให้ครบทั้ง 2 ช่อง'); return; }
+    try{
+      const s = await sel('species', '&limit=1');
+      clog(`เชื่อมต่อสำเร็จ — ตาราง species อ่านได้ (${s.length} แถวตัวอย่าง)`);
+      toast('เชื่อมต่อสำเร็จ'); syncFab();
+    }catch(e){ clog('เชื่อมต่อไม่ได้ — '+e.message);
+      clog('ตรวจว่ารัน SQL สร้างตารางแล้วหรือยัง (ดูไฟล์ ตั้งค่าคลาวด์-supabase.md)');
+      toast('เชื่อมต่อไม่สำเร็จ'); }
+  });
+  $('#cPush').addEventListener('click', push);
+  $('#cPull').addEventListener('click', ()=> pull(false));
+
+  /* ---------- ฟอร์มเพิ่มการพบเห็น ---------- */
+  const addSheet = $('#addSheet');
+  function syncFab(){
+    $('#btnAdd').hidden = !(ready() && C.allowAdd !== false);
+    $('#aPassWrap').hidden = !C.pass;
+  }
+  function fillSpecies(){
+    $('#aSpecies').innerHTML = SPECIES.slice().sort((a,b)=>a.th.localeCompare(b.th,'th'))
+      .map(s=>`<option value="${s.id}">${s.th} · ${s.en}</option>`).join('');
+  }
+  $('#btnAdd').addEventListener('click', ()=>{
+    fillSpecies(); syncFab();
+    $('#aDate').value = new Date().toISOString().slice(0,10);
+    addSheet.classList.add('on');
+  });
+  $('#addClose').addEventListener('click', ()=> addSheet.classList.remove('on'));
+  addSheet.addEventListener('click', e=>{ if(e.target===addSheet) addSheet.classList.remove('on'); });
+
+  $('#aGeo').addEventListener('click', ()=>{
+    if(!navigator.geolocation){ toast('เครื่องนี้ไม่รองรับ'); return; }
+    $('#aGeoNote').textContent = 'กำลังหาตำแหน่ง…';
+    navigator.geolocation.getCurrentPosition(p=>{
+      $('#aLat').value = p.coords.latitude.toFixed(6);
+      $('#aLon').value = p.coords.longitude.toFixed(6);
+      const ok = G.inPark([p.coords.longitude, p.coords.latitude]);
+      $('#aGeoNote').innerHTML = ok
+        ? 'ได้ตำแหน่งแล้ว · อยู่ในเขตสวน'
+        : '<span style="color:#E8A88F">ตำแหน่งนี้อยู่นอกเขตสวนรถไฟ ระบบจะไม่รับ</span>';
+    }, ()=> $('#aGeoNote').textContent = 'หาตำแหน่งไม่ได้ — ลองคลิกเลือกบนแผนที่แทน',
+    {enableHighAccuracy:true, timeout:10000});
+  });
+
+  let picking = false;
+  $('#aPickMap').addEventListener('click', ()=>{
+    addSheet.classList.remove('on'); picking = true;
+    $('#pickHint').classList.add('on');
+    $('#mapViewport').classList.add('picking');
+  });
+  document.addEventListener('bm:mapclick', e=>{
+    if(!picking) return;
+    picking = false;
+    $('#pickHint').classList.remove('on');
+    $('#mapViewport').classList.remove('picking');
+    $('#aLat').value = e.detail.lat.toFixed(6);
+    $('#aLon').value = e.detail.lng.toFixed(6);
+    const ok = G.inPark([e.detail.lng, e.detail.lat]);
+    $('#aGeoNote').innerHTML = ok ? 'ปักตำแหน่งแล้ว · อยู่ในเขตสวน'
+      : '<span style="color:#E8A88F">ตำแหน่งนี้อยู่นอกเขตสวนรถไฟ ระบบจะไม่รับ</span>';
+    addSheet.classList.add('on');
+  });
+
+  /* อ่าน GPS จากรูปที่แนบ */
+  $('#aPhoto').addEventListener('change', async e=>{
+    const f = e.target.files[0]; if(!f) return;
+    try{
+      const buf = await f.slice(0,196608).arrayBuffer();
+      const ex = window.__readExif ? window.__readExif(buf) : null;
+      if(ex && ex.lat){
+        $('#aLat').value = ex.lat.toFixed(6); $('#aLon').value = ex.lon.toFixed(6);
+        if(ex.dt) $('#aDate').value = ex.dt.slice(0,10).replace(/:/g,'-');
+        $('#aGeoNote').textContent = 'ดึงพิกัดจากรูปให้แล้ว';
+      }
+    }catch(err){}
+  });
+
+  $('#aSend').addEventListener('click', async ()=>{
+    if(!ready()){ toast('ยังไม่ได้ต่อคลาวด์'); return; }
+    if(C.pass && $('#aPass').value.trim() !== C.pass){ toast('รหัสผ่านไม่ถูกต้อง'); return; }
+    const lat = parseFloat($('#aLat').value), lon = parseFloat($('#aLon').value);
+    if(!isFinite(lat) || !isFinite(lon)){ toast('ยังไม่ได้ระบุตำแหน่ง'); return; }
+    if(!G.inPark([lon, lat])){ toast('ตำแหน่งอยู่นอกเขตสวนรถไฟ'); return; }
+
+    $('#aSend').disabled = true; $('#aStat').textContent = 'กำลังส่ง…';
+    try{
+      let photo = null;
+      const f = $('#aPhoto').files[0];
+      if(f) photo = await upload(`obs/${Date.now()}-${f.name.replace(/[^\w.-]/g,'')}`, f);
+      await ins('sightings', [{
+        species_id: $('#aSpecies').value, lat, lon,
+        n: Math.max(1, +$('#aCount').value||1),
+        observed_at: $('#aDate').value || null,
+        note: $('#aNote').value.trim() || null,
+        photo_url: photo, by_name: $('#aBy').value.trim() || 'ผู้เข้าชม'
+      }]);
+      $('#aStat').textContent = 'ส่งเรียบร้อย';
+      toast('ขอบคุณครับ ข้อมูลขึ้นแผนที่แล้ว');
+      $('#aNote').value=''; $('#aPhoto').value='';
+      await pull(true);
+      setTimeout(()=>{ addSheet.classList.remove('on'); $('#aStat').textContent=''; }, 900);
+    }catch(e){ $('#aStat').textContent = 'ส่งไม่สำเร็จ'; toast('ส่งไม่สำเร็จ — '+e.message); }
+    $('#aSend').disabled = false;
+  });
+
+  /* ---------- เริ่มต้น ---------- */
+  fillCloudForm(); syncFab();
+  if(ready()) setTimeout(()=> pull(true), 1600);
+})();
+
+</script>
+</body>
+</html>
