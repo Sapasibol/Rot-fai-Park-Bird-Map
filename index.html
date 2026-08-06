@@ -1135,7 +1135,7 @@ body.svgfb .rail-h.gl-only{display:none}
       <div class="zone-card" id="zoneCard">
         <h3><span class="zdot"></span><span id="cTitle">ทั้งสวน</span></h3>
         <p class="sub" id="cSub">All zones</p>
-        <div class="bignum"><b id="cDens">0</b><span>ตัว<small><span id="cSpN">0</span> ชนิด · 26 ก.ค. – 4 ส.ค.</small></span></div>
+        <div class="bignum"><b id="cDens">0</b><span>ตัว<small><span id="cSpN">0</span> ชนิด · <span id="cRange">1 ม.ค. – วันนี้</span></small></span></div>
         <div class="glist" id="cGroups"></div>
         <div class="env" id="cEnv"></div>
         <p class="note" id="cNote"></p>
@@ -1971,6 +1971,9 @@ if(mapEl){
       : Math.round(inZone.reduce((a,sp)=> a + zoneShare(sp, state.zone), 0));
     $('#cDens').textContent = total;
     $('#cSpN').textContent  = inZone.length;
+    { const cr = $('#cRange');
+      if(cr) cr.textContent = state.src === 'ours'
+        ? '26, 29 ก.ค. · 4 ส.ค.' : ('1 ม.ค. – ' + thaiToday()); }
 
     /* dominant groups */
     const agg = {};
