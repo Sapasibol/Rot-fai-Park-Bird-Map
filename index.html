@@ -3635,10 +3635,24 @@ if(mapEl){
     return r.json();
   }
   async function upload(path, blob){
-    const r = await api(`/storage/v1/object/bird-photos/${path}`, {method:'POST',
+    /* ชื่อไฟล์ต้องเป็นอักษรปลอดภัยเท่านั้น กันชื่อไทย/ช่องว่างทำให้ storage ปฏิเสธ */
+    const key = String(path).replace(/[^\w./-]/g, '_');
+    const url = `/storage/v1/object/bird-photos/${key}`;
+    const opt = m =>({method:m,
       headers:hdr({'Content-Type':blob.type||'image/jpeg','x-upsert':'true'}), body:blob});
-    if(!r.ok) throw new Error('upload '+r.status);
-    return `${C.url.replace(/\/+$/,'')}/storage/v1/object/public/bird-photos/${path}`;
+
+    let r = await api(url, opt('POST'));
+    /* ถ้ามีไฟล์เดิมอยู่แล้ว บาง instance จะตอบ 400/409 ให้เขียนทับด้วย PUT แทน */
+    if(!r.ok && (r.status === 400 || r.status === 409)) r = await api(url, opt('PUT'));
+
+    if(!r.ok){
+      let msg = '';
+      try{ const t = await r.text();
+           try{ msg = (JSON.parse(t).message || JSON.parse(t).error || t); }catch(e){ msg = t; }
+      }catch(e){}
+      throw new Error(`upload ${r.status} · ${key} · ${String(msg).slice(0,140)}`);
+    }
+    return `${C.url.replace(/\/+$/,'')}/storage/v1/object/public/bird-photos/${key}`;
   }
 
   /* ภาพแทนสำหรับชนิดที่ยังไม่มีรูปถ่าย — เงาปีกนกบนพื้นเขียวเข้ม */
@@ -3695,15 +3709,24 @@ if(mapEl){
       clog('เริ่มอัปโหลด…');
       /* 1. รูป */
       const urls = {};
+      let imgOk = 0, imgFail = 0;
       for(const sp of SPECIES){
         for(const [k,suf] of [['avURL','_av'],['heroURL','']]){
           if(!sp[k] || !sp[k].startsWith('blob:')) continue;
-          const b = await (await fetch(sp[k])).blob();
-          urls[sp.id] = urls[sp.id] || {};
-          urls[sp.id][k] = await upload(`${sp.id}${suf}.jpg`, b);
-          clog(`  รูป ${sp.th}${suf?' (วงกลม)':''}`);
+          /* รูปใบเดียวพังไม่ควรทำให้ทั้งงานหยุด — ข้ามไปแล้วรายงานท้ายสุด */
+          try{
+            const b = await (await fetch(sp[k])).blob();
+            urls[sp.id] = urls[sp.id] || {};
+            urls[sp.id][k] = await upload(`${sp.id}${suf}.jpg`, b);
+            imgOk++;
+            clog(`  รูป ${sp.th}${suf?' (วงกลม)':' (รูปใหญ่)'}`);
+          }catch(err){
+            imgFail++;
+            clog(`  ข้าม ${sp.th}${suf?' (วงกลม)':' (รูปใหญ่)'} — ${err.message}`);
+          }
         }
       }
+      if(imgOk || imgFail) clog(`  สรุปรูป — สำเร็จ ${imgOk} · ข้าม ${imgFail}`);
       /* 2. ชนิด */
       const rows = SPECIES.map(sp=>({
         id:sp.id, th:sp.th, en:sp.en, sci:sp.sci, g:sp.g, z:sp.z, f:sp.f,
