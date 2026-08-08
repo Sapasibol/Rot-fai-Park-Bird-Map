@@ -1,0 +1,14 @@
+{
+  "version": "1.0",
+  "type": "rich",
+  "provider_name": "Rot Fai Park Bird Map",
+  "provider_url": "https://sapasibol.github.io/Rot-fai-Park-Bird-Map/",
+  "title": "Rot Fai Park Bird Map — แผนที่นกสวนรถไฟ",
+  "author_name": "Rot Fai Park Bird Survey",
+  "thumbnail_url": "https://sapasibol.github.io/Rot-fai-Park-Bird-Map/preview.jpg",
+  "thumbnail_width": 1280,
+  "thumbnail_height": 720,
+  "width": 1280,
+  "height": 720,
+  "html": "<iframe src=\"https://sapasibol.github.io/Rot-fai-Park-Bird-Map/?embed=1\" width=\"1280\" height=\"720\" frameborder=\"0\" allowfullscreen allow=\"geolocation; fullscreen\" style=\"border:0;width:100%;aspect-ratio:16/9\" title=\"Rot Fai Park Bird Map\"></iframe>"
+}
