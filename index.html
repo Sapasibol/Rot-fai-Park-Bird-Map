@@ -1354,7 +1354,9 @@ const PREF = {
   'chinese-pond-heron'     :{water:1.0, scrub:.35},
   'common-kingfisher'      :{water:1.0, scrub:.30},
   'asian-barred-owlet'     :{canopy:1.0, scrub:.40},
-  'black-naped-oriole'     :{canopy:1.0, scrub:.35}
+  'black-naped-oriole'     :{canopy:1.0, scrub:.35},
+  'indian-pond-heron'      :{water:1.0, scrub:.35},
+  'little-egret'           :{water:1.0, lawn:.35}
 };
 const HAB_TH = {water:'ริมน้ำ', canopy:'เรือนยอดไม้ใหญ่', lawn:'สนามหญ้าเปิด',
                 scrub:'พุ่มไม้และหญ้าสูง', path:'ทางเดินและลานคน'};
@@ -1566,7 +1568,17 @@ const SPECIES = [
  {id:'black-naped-oriole', th:'นกขมิ้นท้ายทอยดำ', en:'Black-naped Oriole', sci:'Oriolus chinensis',
   g:'insect', z:['A','D'], f:26, img:'black-naped-oriole', shot:'บนเรือนยอดไม้ใหญ่',
   beh:'ตัวเหลืองสดทั้งตัว มีแถบดำหนาพาดจากตาไปบรรจบกันที่ท้ายทอย ปากสีชมพูแดงเข้ม ชอบอยู่บนเรือนยอดสูงจนมองยากทั้งที่สีสดมาก กินผลไม้สุกและแมลงใหญ่ เสียงร้องเป็นเสียงนกหวีดใสสามพยางค์ที่ได้ยินไปไกล',
-  where:'ยอดไม้ใหญ่ที่มีผลสุก โดยเฉพาะไทรและตะขบ ฟังเสียงหวีดใสแล้วค่อยเงยหามักเจอง่ายกว่ากวาดตาหา'}
+  where:'ยอดไม้ใหญ่ที่มีผลสุก โดยเฉพาะไทรและตะขบ ฟังเสียงหวีดใสแล้วค่อยเงยหามักเจอง่ายกว่ากวาดตาหา'},
+
+ {id:'indian-pond-heron', th:'นกยางกรอกพันธุ์อินเดีย', en:'Indian Pond Heron', sci:'Ardeola grayii',
+  g:'migrant', z:['A'], f:6, img:'indian-pond-heron', shot:'รอภาพถ่ายจากทีมสำรวจ',
+  beh:'ชุดผสมพันธุ์หัวและคอออกสีน้ำตาลอมเหลือง หลังสีน้ำตาลแดงเข้ม ต่างจากพันธุ์ชวาที่หลังออกเทาเข้มและพันธุ์จีนที่หัวคอออกน้ำตาลแดง ยืนนิ่งริมน้ำรอเหยื่อแบบเดียวกัน พอบินขึ้นจะเห็นปีกขาวสว่างตัดกับลำตัว',
+  where:'ขอบบึงและพงหญ้าชายน้ำในโซน A — พบยากที่สุดในสามพันธุ์ ควรถ่ายภาพยืนยันทุกครั้งที่เจอ'},
+
+ {id:'little-egret', th:'นกยางเปีย', en:'Little Egret', sci:'Egretta garzetta',
+  g:'water', z:['A'], f:18, img:'little-egret', shot:'รอภาพถ่ายจากทีมสำรวจ',
+  beh:'ขาวล้วนทั้งตัว ปากดำเรียวยาว ขาดำแต่นิ้วเท้าสีเหลืองสดเป็นจุดสังเกตที่แน่นอนที่สุด ชุดผสมพันธุ์มีขนเปียยาวสองเส้นห้อยจากท้ายทอย หากินแบบไล่ต้อน เดินย่ำน้ำกวนให้ปลาตกใจแล้วจิกเร็ว ๆ',
+  where:'น้ำตื้นริมบึงและร่องน้ำในโซน A มักหากินคู่กับนกยางควายแต่ชอบลงน้ำลึกกว่า'}
 ];
 
 /* ---- 8.3c จุดพบจริงจาก GPS ในภาพถ่าย ------------------------------------
@@ -2741,6 +2753,8 @@ if(mapEl){
     'commonkingfisher':'common-kingfisher',
     'asianbarredowlet':'asian-barred-owlet',
     'blacknapedoriole':'black-naped-oriole',
+    'indianpondheron':'indian-pond-heron',
+    'littleegret':'little-egret',
     'blackbackeddwarfkingfisher':'sp-oriental-dwarf-kingfisher-3a7o',
     'orientaldwarfkingfisher':'sp-oriental-dwarf-kingfisher-3a7o'
   };
