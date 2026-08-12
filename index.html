@@ -1343,10 +1343,40 @@ const PREF = {
   'zebra-dove'             :{path:.90, lawn:.85},
   'rock-pigeon'            :{path:1.0, lawn:.60},
   'spotted-dove'           :{lawn:.90, path:.70, scrub:.40},
-  'asian-palm-swift'       :{canopy:.70, lawn:.55}
+  'asian-palm-swift'       :{canopy:.70, lawn:.55},
+  /* ---- เพิ่มตามรายชื่อสำรวจ 8 ส.ค. ---- */
+  'eurasian-tree-sparrow'  :{path:1.0, lawn:.70, scrub:.40},
+  'asian-pied-starling'    :{lawn:1.0, path:.55, water:.45},
+  'scaly-breasted-munia'   :{scrub:1.0, lawn:.50},
+  'scarlet-backed-flowerpecker':{canopy:1.0, scrub:.55},
+  'yellow-bellied-prinia'  :{scrub:1.0, water:.40},
+  'streak-eared-bulbul'    :{scrub:.90, canopy:.65, path:.45},
+  'chinese-pond-heron'     :{water:1.0, scrub:.35},
+  'common-kingfisher'      :{water:1.0, scrub:.30},
+  'asian-barred-owlet'     :{canopy:1.0, scrub:.40}
 };
 const HAB_TH = {water:'ริมน้ำ', canopy:'เรือนยอดไม้ใหญ่', lawn:'สนามหญ้าเปิด',
                 scrub:'พุ่มไม้และหญ้าสูง', path:'ทางเดินและลานคน'};
+
+/* ---- ภาพแทนสำหรับชนิดที่ยังไม่มีรูปถ่าย ----
+   ถ้าไฟล์ใน assets/birds/ ยังไม่มี เบราว์เซอร์จะยิง error
+   เราดักไว้แล้วสลับเป็นภาพนี้แทน จะได้ไม่เห็นไอคอนรูปแตก        */
+const NOPIC = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">'+
+  '<rect width="120" height="120" fill="#16241a"/>'+
+  '<g fill="#4CA555" opacity=".55" transform="translate(60 58) scale(1.45)">'+
+  '<path d="M0,2 C-7,-3 -17,-12 -29,-11 C-19,-3 -9,1 0,3Z"/>'+
+  '<path d="M0,2 C7,-3 17,-12 29,-11 C19,-3 9,1 0,3Z"/>'+
+  '<path d="M-6,2 C-3,-1 3,-1 7,1 C9,1.6 10,2.4 11,3.2 C8,4 3,4.4 -2,4 C-5,3.8 -6,3 -6,2Z"/>'+
+  '</g><text x="60" y="98" text-anchor="middle" fill="#7f9a84" '+
+  'font-family="sans-serif" font-size="11">รอภาพถ่าย</text></svg>');
+
+document.addEventListener('error', e=>{
+  const t = e.target;
+  if(t && t.tagName === 'IMG' && !t.dataset.ph && /assets\/birds\//.test(t.src || '')){
+    t.dataset.ph = '1'; t.src = NOPIC;
+  }
+}, true);
 
 /* ---- 8.3 species catalogue ----------------------------------------------
    รูปทั้งหมดถ่ายเองในสวนรถไฟ · ระบุชนิดจากภาพถ่าย
@@ -1394,12 +1424,12 @@ const SPECIES = [
   beh:'ตัวเล็กจิ๋วแต่ว่องไวมาก บินนิ่งอยู่กับที่เพื่อดูดน้ำหวานจากดอกไม้ ตัวผู้มีแถบคอสีน้ำเงินม่วงเหลือบที่เห็นเฉพาะตอนแสงตกกระทบมุมที่ใช่ ตัวเมียสร้างรังห้อยรูปหยดน้ำจากใยแมงมุมและเส้นใยพืช',
   where:'แปลงไม้ดอกรอบอุทยานผีเสื้อโซน D และพุ่มไม้ดอกทั่วโซน A กับ B'},
 
- {id:'oriental-magpie-robin', th:'นกกางเขน', en:'Oriental Magpie-Robin', sci:'Copsychus saularis',
+ {id:'oriental-magpie-robin', th:'นกกางเขนบ้าน', en:'Oriental Magpie-Robin', sci:'Copsychus saularis',
   g:'insect', z:['A','B','C','D'], f:66, img:'oriental-magpie-robin', shot:'หากินบนพื้นโล่ง',
   beh:'นักร้องประจำสวน ส่งเสียงเพลงซับซ้อนตั้งแต่ฟ้ายังไม่สว่าง กระดกหางขึ้นลงตลอดเวลาที่เดินหาแมลงบนพื้น ตัวผู้ดำขาวตัดกันชัด ตัวเมียสีเทาอมน้ำตาล หวงถิ่นและไล่นกตัวอื่นออกจากเขตตัวเอง',
   where:'ทั่วทั้งสวน โดยเฉพาะขอบสนามหญ้าที่ติดกับพุ่มไม้ — เป็นนกที่เจอง่ายที่สุดชนิดหนึ่ง'},
 
- {id:'yellow-vented-bulbul', th:'นกปรอทหน้านวล', en:'Yellow-vented Bulbul', sci:'Pycnonotus goiavier',
+ {id:'yellow-vented-bulbul', th:'นกปรอดหน้านวล', en:'Yellow-vented Bulbul', sci:'Pycnonotus goiavier',
   g:'insect', z:['B'], f:58, img:'yellow-vented-bulbul', shot:'เกาะกิ่งริมทางเดิน',
   beh:'หน้าขาวนวลมีขีดดำผ่านตา ก้นสีเหลืองสด กินทั้งผลไม้สุกและแมลง ส่งเสียงร้องสดใสเป็นชุดตลอดวัน อยู่รวมกลุ่มเล็ก ๆ และปรับตัวกับสวนในเมืองได้ดีมาก',
   where:'พุ่มไม้ผลและแนวรั้วต้นไม้ตลอดเส้นทางปั่นจักรยานโซน B'},
@@ -1482,7 +1512,55 @@ const SPECIES = [
  {id:'rock-pigeon', th:'นกพิราบ', en:'Rock Pigeon', sci:'Columba livia',
   g:'urban', z:['A','B','C','D'], f:154, img:'rock-pigeon', shot:'บนสนามหญ้าใกล้ลานคน',
   beh:'รวมฝูงหนาแน่นตามลานที่มีคนให้อาหาร กินเศษขนมปังและเมล็ดพืช ความหนาแน่นของนกพิราบเป็นตัวชี้วัดตรง ๆ ว่าพื้นที่นั้นมีการให้อาหารสัตว์มากแค่ไหน และมักเบียดเบียนนกพื้นถิ่นชนิดอื่น',
-  where:'ลานกิจกรรมและจุดพักที่คนนั่งกินอาหาร — หนาแน่นที่สุดในโซน C'}
+  where:'ลานกิจกรรมและจุดพักที่คนนั่งกินอาหาร — หนาแน่นที่สุดในโซน C'},
+
+ /* ===== เพิ่มตามรายชื่อสำรวจ 8 ส.ค. 2569 — ยังรอรูปถ่ายจริง =====
+    ตัวเลข f เป็นค่าตั้งต้นเท่านั้น ระบบจะเขียนทับด้วยยอดจริงจาก eBird
+    โซนที่ระบุไว้เป็นการประมาณจากถิ่นอาศัย ปรับได้ที่ ⚙ เพิ่มชนิดนก      */
+ {id:'eurasian-tree-sparrow', th:'นกกระจอกบ้าน', en:'Eurasian Tree Sparrow', sci:'Passer montanus',
+  g:'urban', z:['B','C'], f:60, img:'eurasian-tree-sparrow', shot:'รอภาพถ่ายจากทีมสำรวจ',
+  beh:'อยู่รวมกันเป็นฝูงเล็ก ส่งเสียงจิ๊บ ๆ ตลอดเวลา หากินเมล็ดพืชและเศษอาหารตามพื้น ทำรังในซอกอาคารและโพรงป้าย แยกจากนกกระจอกชนิดอื่นด้วยแต้มดำกลางแก้มขาว',
+  where:'ลานคน ศาลาพัก และรอบอาคารบริการ — เจอง่ายที่สุดตรงจุดที่คนนั่งกินของว่าง'},
+
+ {id:'asian-pied-starling', th:'นกเอี้ยงด่าง', en:'Asian Pied Starling', sci:'Gracupica contra',
+  g:'urban', z:['A','B'], f:24, img:'asian-pied-starling', shot:'รอภาพถ่ายจากทีมสำรวจ',
+  beh:'ลายขาวดำตัดกันชัด มีหนังเปลือยสีส้มรอบตาซึ่งเป็นจุดแยกจากนกกิ้งโครงคอดำ เดินหากินแมลงบนสนามหญ้าชื้นเป็นคู่หรือกลุ่มเล็ก เสียงร้องแหลมเป็นชุด',
+  where:'สนามหญ้าชื้นใกล้บึงและร่องน้ำ มักหากินปนกับนกเอี้ยงชนิดอื่นแต่จำนวนน้อยกว่า'},
+
+ {id:'scaly-breasted-munia', th:'นกกระติ๊ดขี้หมู', en:'Scaly-breasted Munia', sci:'Lonchura punctulata',
+  g:'insect', z:['A'], f:38, img:'scaly-breasted-munia', shot:'รอภาพถ่ายจากทีมสำรวจ',
+  beh:'ตัวเล็กปากหนารูปกรวย อกมีลายเกล็ดคล้ายตาข่าย เกาะก้านหญ้าแล้วรูดกินเมล็ดโดยตรง อยู่เป็นฝูงแน่น พอตกใจจะบินขึ้นพร้อมกันทั้งฝูง',
+  where:'ดงหญ้าสูงที่ออกเมล็ดในโซน A มักอยู่แปลงเดียวกับนกกระจาบและนกกระจิบหญ้า'},
+
+ {id:'scarlet-backed-flowerpecker', th:'นกสีชมพูสวน', en:'Scarlet-backed Flowerpecker', sci:'Dicaeum cruentatum',
+  g:'insect', z:['A','D'], f:20, img:'scarlet-backed-flowerpecker', shot:'รอภาพถ่ายจากทีมสำรวจ',
+  beh:'ตัวจิ๋วมาก ตัวผู้มีแถบแดงสดพาดกลางหลังตั้งแต่หัวถึงหาง ว่องไวจนตามยาก กินผลไม้เล็กโดยเฉพาะลูกกาฝาก และช่วยกระจายเมล็ดกาฝากไปทั่วสวน',
+  where:'เรือนยอดไม้ใหญ่ที่มีกาฝากเกาะ ฟังเสียง “ติ๊ด ๆ” สั้นและแหลมจะหาเจอง่ายกว่ามอง'},
+
+ {id:'yellow-bellied-prinia', th:'นกกระจิบหญ้าท้องเหลือง', en:'Yellow-bellied Prinia', sci:'Prinia flaviventris',
+  g:'insect', z:['A'], f:22, img:'yellow-bellied-prinia', shot:'รอภาพถ่ายจากทีมสำรวจ',
+  beh:'หัวสีเทาตัดกับท้องสีเหลืองอ่อน หางยาวชี้ขึ้นตอนเกาะ ชอบไต่ตามก้านหญ้าและกกริมน้ำ ร้องเสียงคล้ายแมวเบา ๆ ต่างจากนกกระจิบหญ้าสีเรียบที่เสียงเป็นชุดรัว',
+  where:'กอกกและหญ้าสูงติดขอบน้ำในโซน A — ชอบที่ชื้นกว่านกกระจิบหญ้าสีเรียบ'},
+
+ {id:'streak-eared-bulbul', th:'นกปรอดสวน', en:'Streak-eared Bulbul', sci:'Pycnonotus conradi',
+  g:'insect', z:['A','B','C','D'], f:88, img:'streak-eared-bulbul', shot:'รอภาพถ่ายจากทีมสำรวจ',
+  beh:'นกปรอดที่พบบ่อยที่สุดในเมือง สีน้ำตาลเทาเรียบ ๆ มีขีดขาวจาง ๆ ที่ขนคลุมหู ตาสีขาวซีดเป็นจุดสังเกตสำคัญ กินผลไม้สุกและแมลง ส่งเสียงร้องดังตลอดวัน',
+  where:'พบทั่วสวนทุกโซน โดยเฉพาะพุ่มไม้ผลและแนวต้นไม้ริมทางเดิน'},
+
+ {id:'chinese-pond-heron', th:'นกยางกรอกพันธุ์จีน', en:'Chinese Pond Heron', sci:'Ardeola bacchus',
+  g:'migrant', z:['A'], f:14, img:'chinese-pond-heron', shot:'รอภาพถ่ายจากทีมสำรวจ',
+  beh:'ตอนชุดผสมพันธุ์หัวและคอเป็นสีน้ำตาลแดงเข้ม หลังสีเทาดำ แยกจากพันธุ์ชวาที่หัวคอออกเหลืองน้ำตาลอ่อน ยืนนิ่งรอเหยื่อริมน้ำนานมากก่อนจะพุ่งจับ',
+  where:'ขอบบึงและร่องน้ำในโซน A พบมากช่วงฤดูหนาวถึงต้นฤดูฝนซึ่งเป็นช่วงอพยพ'},
+
+ {id:'common-kingfisher', th:'นกกระเต็นน้อยธรรมดา', en:'Common Kingfisher', sci:'Alcedo atthis',
+  g:'migrant', z:['A'], f:12, img:'common-kingfisher', shot:'รอภาพถ่ายจากทีมสำรวจ',
+  beh:'ตัวเล็กสีฟ้าเทอร์ควอยซ์สดใส บินตรงและเร็วปรื๋อเหนือผิวน้ำจนเห็นเป็นแถบสีฟ้าแวบเดียว เกาะนิ่งบนกิ่งเตี้ยเหนือน้ำแล้วดิ่งลงจับปลาเล็ก',
+  where:'กิ่งไม้และเสาที่ยื่นเหนือบึงในโซน A มองหาตอนเช้าตรู่ที่ผิวน้ำนิ่ง'},
+
+ {id:'asian-barred-owlet', th:'นกเค้าโมง', en:'Asian Barred Owlet', sci:'Glaucidium cuculoides',
+  g:'raptor', z:['A'], f:8, img:'asian-barred-owlet', shot:'รอภาพถ่ายจากทีมสำรวจ',
+  beh:'นกเค้าตัวเล็กที่ออกหากินกลางวันได้ ต่างจากนกเค้าส่วนใหญ่ ลำตัวมีลายขวางถี่ทั้งตัวเป็นจุดแยกจากนกเค้าจุดที่เป็นจุดกลม เกาะนิ่งบนกิ่งสูงแล้วโฉบจับแมลงใหญ่ จิ้งจก และนกเล็ก',
+  where:'เรือนยอดไม้ใหญ่ในโซนป่าชายเลน มักถูกฝูงนกเล็กรุมไล่ ทำให้หาเจอจากเสียงนกที่ส่งเสียงเตือนกันวุ่นวาย'}
 ];
 
 /* ---- 8.3c จุดพบจริงจาก GPS ในภาพถ่าย ------------------------------------
@@ -2645,7 +2723,19 @@ if(mapEl){
     'cattleegret':'cattle-egret',
     'greatercoucal':'greater-coucal',
     'zebradove':'zebra-dove',
-    'rockpigeon':'rock-pigeon'
+    'rockpigeon':'rock-pigeon',
+    /* ---- ชนิดที่เพิ่มตามรายชื่อสำรวจ 8 ส.ค. ---- */
+    'eurasiantreesparrow':'eurasian-tree-sparrow',
+    'asianpiedstarling':'asian-pied-starling',
+    'scalybreastedmunia':'scaly-breasted-munia',
+    'scarletbackedflowerpecker':'scarlet-backed-flowerpecker',
+    'yellowbelliedprinia':'yellow-bellied-prinia',
+    'streakearedbulbul':'streak-eared-bulbul',
+    'chinesepondheron':'chinese-pond-heron',
+    'commonkingfisher':'common-kingfisher',
+    'asianbarredowlet':'asian-barred-owlet',
+    'blackbackeddwarfkingfisher':'sp-oriental-dwarf-kingfisher-3a7o',
+    'orientaldwarfkingfisher':'sp-oriental-dwarf-kingfisher-3a7o'
   };
   const norm = s => (s||'').toLowerCase().replace(/[^a-z]/g,'');
 
