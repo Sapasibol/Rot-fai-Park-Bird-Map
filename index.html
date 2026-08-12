@@ -1353,7 +1353,8 @@ const PREF = {
   'streak-eared-bulbul'    :{scrub:.90, canopy:.65, path:.45},
   'chinese-pond-heron'     :{water:1.0, scrub:.35},
   'common-kingfisher'      :{water:1.0, scrub:.30},
-  'asian-barred-owlet'     :{canopy:1.0, scrub:.40}
+  'asian-barred-owlet'     :{canopy:1.0, scrub:.40},
+  'black-naped-oriole'     :{canopy:1.0, scrub:.35}
 };
 const HAB_TH = {water:'ริมน้ำ', canopy:'เรือนยอดไม้ใหญ่', lawn:'สนามหญ้าเปิด',
                 scrub:'พุ่มไม้และหญ้าสูง', path:'ทางเดินและลานคน'};
@@ -1560,7 +1561,12 @@ const SPECIES = [
  {id:'asian-barred-owlet', th:'นกเค้าโมง', en:'Asian Barred Owlet', sci:'Glaucidium cuculoides',
   g:'raptor', z:['A'], f:8, img:'asian-barred-owlet', shot:'รอภาพถ่ายจากทีมสำรวจ',
   beh:'นกเค้าตัวเล็กที่ออกหากินกลางวันได้ ต่างจากนกเค้าส่วนใหญ่ ลำตัวมีลายขวางถี่ทั้งตัวเป็นจุดแยกจากนกเค้าจุดที่เป็นจุดกลม เกาะนิ่งบนกิ่งสูงแล้วโฉบจับแมลงใหญ่ จิ้งจก และนกเล็ก',
-  where:'เรือนยอดไม้ใหญ่ในโซนป่าชายเลน มักถูกฝูงนกเล็กรุมไล่ ทำให้หาเจอจากเสียงนกที่ส่งเสียงเตือนกันวุ่นวาย'}
+  where:'เรือนยอดไม้ใหญ่ในโซนป่าชายเลน มักถูกฝูงนกเล็กรุมไล่ ทำให้หาเจอจากเสียงนกที่ส่งเสียงเตือนกันวุ่นวาย'},
+
+ {id:'black-naped-oriole', th:'นกขมิ้นท้ายทอยดำ', en:'Black-naped Oriole', sci:'Oriolus chinensis',
+  g:'insect', z:['A','D'], f:26, img:'black-naped-oriole', shot:'บนเรือนยอดไม้ใหญ่',
+  beh:'ตัวเหลืองสดทั้งตัว มีแถบดำหนาพาดจากตาไปบรรจบกันที่ท้ายทอย ปากสีชมพูแดงเข้ม ชอบอยู่บนเรือนยอดสูงจนมองยากทั้งที่สีสดมาก กินผลไม้สุกและแมลงใหญ่ เสียงร้องเป็นเสียงนกหวีดใสสามพยางค์ที่ได้ยินไปไกล',
+  where:'ยอดไม้ใหญ่ที่มีผลสุก โดยเฉพาะไทรและตะขบ ฟังเสียงหวีดใสแล้วค่อยเงยหามักเจอง่ายกว่ากวาดตาหา'}
 ];
 
 /* ---- 8.3c จุดพบจริงจาก GPS ในภาพถ่าย ------------------------------------
@@ -2734,6 +2740,7 @@ if(mapEl){
     'chinesepondheron':'chinese-pond-heron',
     'commonkingfisher':'common-kingfisher',
     'asianbarredowlet':'asian-barred-owlet',
+    'blacknapedoriole':'black-naped-oriole',
     'blackbackeddwarfkingfisher':'sp-oriental-dwarf-kingfisher-3a7o',
     'orientaldwarfkingfisher':'sp-oriental-dwarf-kingfisher-3a7o'
   };
