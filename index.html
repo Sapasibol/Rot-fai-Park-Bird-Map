@@ -322,6 +322,7 @@ body.svgfb .rail-h.gl-only{display:none}
   color:#BFE8C4;margin-bottom:8px}
 .birdpop u{display:inline-flex;align-items:center;gap:5px;text-decoration:none;
   font-weight:200;font-size:10.5px;padding:3px 9px;border-radius:7px;color:#fff;
+  background:rgba(255,255,255,.10);                       /* สำรองให้ Android รุ่นเก่า */
   background:color-mix(in srgb, var(--hc) 22%, transparent);border:1px solid var(--hc)}
 .birdpop span{display:block;font-weight:200;font-size:10.5px;color:rgba(255,255,255,.62);margin-top:7px}
 .birdpop .maplibregl-popup-close-button{color:rgba(255,255,255,.6);font-size:17px;padding:2px 7px}
@@ -573,53 +574,139 @@ body.embed .openfull{display:flex}
   transition:background .3s var(--ease),transform .3s var(--ease)}
 .openfull:hover{background:var(--green);border-color:var(--green);transform:translateY(-2px)}
 
-/* ---------- มือถือ iOS / Android ---------- */
+/* ==========================================================================
+   มือถือ iOS / Android — แผ่นเลื่อนลากได้ 3 ระดับ
+   ปุ่มทุกปุ่มอย่างน้อย 44px ตามมาตรฐานการแตะด้วยนิ้ว
+   ใช้ dvh เพราะแถบที่อยู่ของ Safari ยืดหดตลอด vh จะเพี้ยน
+   ========================================================================== */
+.sheet-grip{display:none}
+
 @media (max-width:900px){
-  :root{--nav-h:52px}
+  :root{
+    --nav-h:54px;
+    --peek:76px;                        /* ความสูงตอนหุบ */
+    /* iPhone รายงานขอบล่างมาให้ ส่วน Android แถบปัดกลับไม่รายงาน
+       จึงบังคับขั้นต่ำ 10px ไว้ ปุ่มจะได้ไม่ไปติดขอบจอบน Android */
+    --safe:max(env(safe-area-inset-bottom,0px), 10px);
+  }
   html,body{height:100%;overscroll-behavior:none}
-  body{overflow:hidden}
-  .topbar{position:fixed;height:var(--nav-h);padding:0 12px;
+  body{overflow:hidden;-webkit-text-size-adjust:100%}
+
+  .topbar{position:fixed;height:var(--nav-h);padding:0 10px;gap:8px;
     background:rgba(5,11,7,.96);border-bottom:1px solid rgba(255,255,255,.08)}
-  .brand h1{font-size:12px}.brand span{font-size:9px}
-  .brand .mk{width:26px;height:26px}
+  .brand h1{font-size:12.5px}.brand span{font-size:9px}
+  .brand .mk{width:28px;height:28px}
+  .gear{width:40px;height:40px;margin-left:6px}
   #map{position:fixed;inset:0;top:0}
   .map-shell{position:absolute;inset:0;display:block;padding:0}
   .map-viewport{position:absolute;inset:var(--nav-h) 0 0 0;border:0;border-radius:0;min-height:0}
 
-  /* แผงซ้าย = แผ่นเลื่อนขึ้นจากล่าง */
-  .map-rail{position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;
-    height:auto;max-height:58vh;border-radius:20px 20px 0 0;z-index:60;
-    transform:translateY(calc(100% - 52px));transition:transform .38s var(--ease);
-    padding:10px 8px 16px 14px}
+  /* ---------- แผ่นเลื่อน ---------- */
+  .map-rail{
+    position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;
+    height:88vh;                 /* สำรองให้เบราว์เซอร์รุ่นเก่า */
+    height:88dvh;
+    max-height:none;border-radius:22px 22px 0 0;z-index:60;
+    padding:0 0 calc(10px + var(--safe));
+    background:rgba(6,13,8,.93);border:1px solid rgba(255,255,255,.12);border-bottom:0;
+    box-shadow:0 -14px 44px rgba(0,0,0,.55);
+    transform:translateY(calc(100% - var(--peek) - var(--safe)));
+    transition:transform .34s var(--ease);
+    display:flex;flex-direction:column}
+  /* สำคัญ: ห้ามใส่ touch-action:none ที่ตัวแผ่น ไม่งั้นเลื่อนรายชื่อข้างในไม่ได้
+     ล็อกเฉพาะหัวแผ่นที่ใช้ลากเท่านั้น */
+  .rail-scroll{touch-action:pan-y}
+  .map-rail.dragging{transition:none}
+  .map-rail.half{transform:translateY(46dvh)}
   .map-rail.open{transform:translateY(0)}
-  .map-rail::before{content:'';position:absolute;left:50%;top:7px;transform:translateX(-50%);
-    width:38px;height:4px;border-radius:99px;background:rgba(255,255,255,.3)}
-  .rail-tabs{margin-top:12px}
-  .sp-grid{grid-template-columns:repeat(4,1fr)}
+  .map-rail::before{display:none}
 
-  /* การ์ดขวา = แผ่นเต็มจอเมื่อเลือกนก */
+  /* หัวแผ่น = ที่จับลาก */
+  .sheet-grip{display:flex;align-items:center;gap:10px;flex:none;
+    padding:9px 16px calc(9px + var(--safe));min-height:var(--peek);
+    cursor:grab;user-select:none;position:relative;
+    touch-action:none;-webkit-user-select:none}
+  .sheet-grip .bar{position:absolute;left:50%;top:7px;transform:translateX(-50%);
+    width:40px;height:4px;border-radius:99px;background:rgba(255,255,255,.32)}
+  .sheet-grip .lbl{flex:1;min-width:0;margin-top:6px}
+  .sheet-grip b{display:block;font-family:'Mitr';font-weight:500;font-size:15px;color:#fff}
+  .sheet-grip small{display:block;font-weight:200;font-size:11px;
+    color:rgba(255,255,255,.5);margin-top:1px}
+  .sheet-grip .chev{font-size:20px;line-height:1;color:rgba(255,255,255,.45);
+    margin-top:6px;transition:transform .34s var(--ease)}
+  .map-rail.half .sheet-grip .chev,
+  .map-rail.open .sheet-grip .chev{transform:rotate(180deg)}
+
+  .rail-scroll{padding:0 14px 6px;-webkit-overflow-scrolling:touch}
+  .rail-tabs{margin:0 14px 10px;padding:4px}
+  .rail-tabs button{padding:11px 2px;font-size:13px}
+  .eb-badge{margin:0 14px 8px;font-size:10.5px}
+  .rail-h{font-size:10px;margin:18px 0 10px}
+
+  /* รายชื่อนก — 3 คอลัมน์ อ่านชื่อได้ครบ กดง่าย */
+  .sp-grid{grid-template-columns:repeat(3,1fr);gap:12px}
+  .sp .nm{font-size:10.5px;-webkit-line-clamp:2}
+  .searchbox input{padding:12px 12px 12px 32px;font-size:14px}
+  .zsel button{padding:12px 0;font-size:14px}
+  .tog{padding:10px 14px;font-size:13px}
+  .seg button{padding:12px 2px;font-size:12.5px}
+  .rng{margin-bottom:14px}
+  .rng input{height:22px;background:transparent}
+  .rng input::-webkit-slider-runnable-track{height:4px;border-radius:9px;background:rgba(255,255,255,.22)}
+  .rng input::-webkit-slider-thumb{margin-top:-7px;width:18px;height:18px}
+
+  /* ---------- การ์ดนก = เต็มจอ ---------- */
   .map-card{position:fixed;inset:var(--nav-h) 0 0 0;width:auto;max-height:none;
-    border-radius:0;padding:16px;z-index:70;display:none;overflow-y:auto}
+    border-radius:0;padding:16px 16px calc(28px + var(--safe));z-index:70;
+    display:none;overflow-y:auto;-webkit-overflow-scrolling:touch}
   .map-card.show{display:block}
-  .sp-hero{width:calc(100% + 32px);margin:-16px -16px 14px;aspect-ratio:3/2}
-  .sp-th{font-size:22px}
+  .card-x{display:grid;place-items:center;position:fixed;right:12px;
+    top:calc(var(--nav-h) + 10px);z-index:80;width:40px;height:40px;border-radius:50%;
+    border:1px solid rgba(255,255,255,.28);background:rgba(6,13,8,.82);
+    color:#fff;font-size:16px;cursor:pointer;backdrop-filter:blur(10px)}
+  .sp-hero{width:calc(100% + 32px);margin:-16px -16px 14px;aspect-ratio:4/3}
+  .sp-th{font-size:23px}.sp-body{font-size:14px;line-height:1.85}
+  .sp-back{padding:14px;font-size:13px}
 
-  .map-bottom{position:fixed;left:50%;bottom:60px;transform:translateX(-50%);
-    flex-direction:row;gap:7px;z-index:55}
-  .map-legend{padding:7px 12px}
-  .map-legend .bar{width:80px}
-  .hbtn{width:31px;height:31px;font-size:13px}
-  .hbtn.wide{padding:0 10px;font-size:10px}
-  .addfab{right:12px;bottom:60px;padding:10px 16px;font-size:12px;z-index:56}
+  /* ---------- ปุ่มลอยต่าง ๆ — ยกให้พ้นแผ่นเลื่อน ---------- */
+  .map-bottom{position:fixed;left:0;right:0;
+    bottom:calc(var(--peek) + var(--safe) + 12px);transform:none;
+    z-index:55;justify-content:center;gap:8px;padding:0 10px}
+  .map-legend{padding:8px 14px;order:2;width:100%;justify-content:center}
+  .map-legend .bar{width:min(46vw,190px)}
+  .map-hud{order:1}
+  .hbtn{width:42px;height:42px;font-size:15px}
+  .hbtn.wide{padding:0 14px;font-size:11.5px}
+  .addfab{right:12px;bottom:calc(var(--peek) + var(--safe) + 108px);
+    padding:13px 18px;font-size:13px;z-index:56}
+  .map-rail.half ~ .addfab,
+  .map-rail.open ~ .addfab{opacity:0;pointer-events:none}
+
+  /* ---------- แผงตั้งค่า ---------- */
   .sheet-in{inset:0;border-radius:0}
+  .sheet-bar{height:auto;flex-wrap:wrap;padding:8px 12px;gap:7px}
   .add-in{width:100%;height:100%;max-height:none;border-radius:0;top:0;left:0;transform:none}
   #panePhoto{grid-template-columns:1fr}
   .pcol:nth-child(2),.pcol:nth-child(3){display:none}
   .stabs{flex-wrap:wrap}
-  .stabs button{font-size:10.5px;padding:6px 9px}
+  .stabs button{font-size:11.5px;padding:9px 12px}
+  .sbtn{padding:11px 15px;font-size:12.5px}
+  .fld input,.fld textarea,.fld select{padding:12px;font-size:16px}  /* 16px กัน iOS ซูมเอง */
 }
+
+/* จอเล็กมาก — ลดคอลัมน์และตัวหนังสือลงอีกขั้น */
+@media (max-width:380px){
+  .sp-grid{grid-template-columns:repeat(2,1fr)}
+  .brand span{display:none}
+  .map-legend .bar{width:38vw}
+}
+
+/* แนวนอน — จอเตี้ย ต้องให้แผ่นเลื่อนสูงน้อยลง */
 @media (max-width:900px) and (orientation:landscape){
-  .map-rail{max-height:78vh}
+  :root{--peek:60px}
+  .map-rail{height:92dvh}
+  .map-rail.half{transform:translateY(38dvh)}
+  .sp-grid{grid-template-columns:repeat(5,1fr)}
 }
 
 </style>
@@ -1072,6 +1159,15 @@ body.embed .openfull{display:flex}
 
     <!-- ---------- control rail ---------- -->
     <aside class="map-rail" id="mapRail">
+      <!-- หัวแผ่นเลื่อน — โผล่เฉพาะบนมือถือ ใช้เป็นที่จับลาก -->
+      <div class="sheet-grip" id="railGrip">
+        <span class="bar"></span>
+        <div class="lbl">
+          <b id="gripTitle">นกที่พบในสวนรถไฟ</b>
+          <small id="gripSub">แตะเพื่อเปิดรายชื่อ</small>
+        </div>
+        <span class="chev">⌃</span>
+      </div>
       <div class="rail-tabs">
         <button class="on" data-tab="birds">นกที่พบ</button>
         <button data-tab="filters">ตัวกรอง</button>
@@ -1176,6 +1272,8 @@ body.embed .openfull{display:flex}
 
     <!-- ---------- info card ---------- -->
     <div class="map-card" id="mapCard" style="--zc:#4CA555">
+      <!-- ปุ่มปิด — โผล่เฉพาะบนมือถือตอนการ์ดเต็มจอ -->
+      <button class="card-x" id="cardClose" aria-label="ปิด">✕</button>
 
       <!-- zone view -->
       <div class="zone-card" id="zoneCard">
@@ -1993,6 +2091,7 @@ if(mapEl){
       b.classList.toggle('on', state.species===sp.id);
     });
     $('#spCount').textContent = `(${n} ชนิด)`;
+    if(window.__gripCount) window.__gripCount(n);
   }
 
   function selectSpecies(id){
@@ -2053,15 +2152,109 @@ if(mapEl){
   /* ---------- มือถือ: แผงเลื่อนขึ้น-ลง และการ์ดเต็มจอ ---------- */
   const isPhone = ()=> window.matchMedia('(max-width:900px)').matches;
   const rail = $('#mapRail');
-  rail.addEventListener('click', e=>{
+  const grip = $('#railGrip');
+
+  /* --- แผ่นเลื่อน 3 ระดับ: หุบ / ครึ่งจอ / เต็ม --- */
+  const SNAP = ['peek','half','open'];
+  let snap = 'peek';
+  function setSnap(s){
+    snap = s;
+    rail.classList.toggle('half', s === 'half');
+    rail.classList.toggle('open', s === 'open');
+    rail.style.transform = '';
+    const sub = $('#gripSub');
+    if(sub) sub.textContent = s === 'peek'
+      ? 'แตะเพื่อเปิดรายชื่อ' : 'ลากลงเพื่อย่อ · แตะแผนที่เพื่อปิด';
+  }
+  function gripTop(){                       /* ตำแหน่งบนสุดของแผ่นในแต่ละระดับ (px) */
+    const h = rail.offsetHeight, vh = window.innerHeight;
+    const peek = parseFloat(getComputedStyle(document.documentElement)
+                 .getPropertyValue('--peek')) || 76;
+    return {peek: vh - peek, half: vh - Math.round(vh*0.54), open: vh - h};
+  }
+
+  let drag = null;
+  grip.addEventListener('pointerdown', e=>{
     if(!isPhone()) return;
-    if(!rail.classList.contains('open') || e.target === rail) rail.classList.toggle('open');
+    drag = {y:e.clientY, t:Date.now(), moved:false,
+            start: rail.getBoundingClientRect().top};
+    grip.setPointerCapture(e.pointerId);
+    rail.classList.add('dragging');
   });
+  grip.addEventListener('pointermove', e=>{
+    if(!drag) return;
+    const dy = e.clientY - drag.y;
+    if(Math.abs(dy) > 4) drag.moved = true;
+    const tops = gripTop();
+    const y = Math.min(tops.peek, Math.max(tops.open, drag.start + dy));
+    rail.style.transform = `translateY(${y - (window.innerHeight - rail.offsetHeight)}px)`;
+  });
+  grip.addEventListener('pointerup', e=>{
+    if(!drag) return;
+    rail.classList.remove('dragging');
+    const dy = e.clientY - drag.y, dt = Date.now() - drag.t;
+    const fast = Math.abs(dy) > 30 && dt < 300;      /* สะบัดเร็ว = ข้ามระดับ */
+    let i = SNAP.indexOf(snap);
+    if(!drag.moved){                                  /* แตะเฉย ๆ = สลับ */
+      setSnap(snap === 'peek' ? 'half' : 'peek');
+    }else if(fast){
+      setSnap(SNAP[Math.min(2, Math.max(0, i + (dy < 0 ? 1 : -1)))]);
+    }else{                                            /* ลากช้า = หาระดับใกล้สุด */
+      const top = rail.getBoundingClientRect().top, tops = gripTop();
+      let best = 'peek', d = 1e9;
+      for(const k of SNAP){ const dd = Math.abs(tops[k] - top); if(dd < d){ d = dd; best = k; } }
+      setSnap(best);
+    }
+    drag = null;
+  });
+  grip.addEventListener('pointercancel', ()=>{
+    if(drag){ rail.classList.remove('dragging'); setSnap(snap); drag = null; }
+  });
+
+  /* แตะแผนที่ = ย่อแผ่นลง จะได้ดูแผนที่เต็ม ๆ */
+  $('#mapViewport').addEventListener('pointerdown', ()=>{
+    if(isPhone() && snap !== 'peek') setSnap('peek');
+  }, true);
+
   function syncPhoneCard(){
     if(!isPhone()) return;
     $('#mapCard').classList.toggle('show', !!state.species);
-    if(state.species) rail.classList.remove('open');
+    if(state.species) setSnap('peek');
   }
+  $('#cardClose').addEventListener('click', ()=> selectSpecies(null));
+
+  /* หัวแผ่นบอกจำนวนชนิดที่กำลังแสดง */
+  window.__gripCount = n=>{
+    const t = $('#gripTitle');
+    if(t) t.textContent = `นกที่พบในสวนรถไฟ · ${n} ชนิด`;
+  };
+
+  /* ---------- ปุ่มย้อนกลับของ Android ----------
+     ปกติกดแล้วจะออกจากเว็บทันที ซึ่งน่าหงุดหงิดมาก
+     จึงดักไว้ให้ปิดสิ่งที่เปิดอยู่ทีละชั้นก่อน แล้วค่อยออก        */
+  (function androidBack(){
+    let armed = false;
+    const arm = ()=>{ if(!armed){ history.pushState({bm:1}, ''); armed = true; } };
+    const layers = ()=> [
+      { on:()=> $('#lightbox').classList.contains('on'),
+        off:()=> $('#lightbox').classList.remove('on') },
+      { on:()=> $('#addSheet') && $('#addSheet').classList.contains('on'),
+        off:()=> $('#addSheet').classList.remove('on') },
+      { on:()=> $('#sheet') && $('#sheet').classList.contains('on'),
+        off:()=> $('#sheet').classList.remove('on') },
+      { on:()=> !!state.species,          off:()=> selectSpecies(null) },
+      { on:()=> isPhone() && snap !== 'peek', off:()=> setSnap('peek') }
+    ];
+    /* ทุกครั้งที่มีอะไรเปิด ให้ใส่หน้าปลอมเข้า history ไว้รับปุ่มย้อนกลับ */
+    document.addEventListener('click', ()=>{
+      if(layers().some(l=> l.on())) arm();
+    }, true);
+    window.addEventListener('popstate', ()=>{
+      armed = false;
+      const l = layers().find(x=> x.on());
+      if(l){ l.off(); arm(); }         /* ปิดทีละชั้น แล้วเตรียมรับครั้งถัดไป */
+    });
+  })();
 
   /* ดูรูปนกเต็มจอ */
   const lb = $('#lightbox');
