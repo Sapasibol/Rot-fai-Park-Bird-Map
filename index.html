@@ -621,36 +621,46 @@ body.embed .openfull{display:flex}
   .map-rail.open{transform:translateY(0)}
   .map-rail::before{display:none}
 
-  /* หัวแผ่น = ที่จับลาก */
+  /* หัวแผ่น = ที่จับลาก — กะทัดรัด ไม่กินที่ */
   .sheet-grip{display:flex;align-items:center;gap:10px;flex:none;
-    padding:9px 16px calc(9px + var(--safe));min-height:var(--peek);
+    padding:10px 14px 8px;min-height:var(--peek);
     cursor:grab;user-select:none;position:relative;
     touch-action:none;-webkit-user-select:none}
-  .sheet-grip .bar{position:absolute;left:50%;top:7px;transform:translateX(-50%);
-    width:40px;height:4px;border-radius:99px;background:rgba(255,255,255,.32)}
-  .sheet-grip .lbl{flex:1;min-width:0;margin-top:6px}
-  .sheet-grip b{display:block;font-family:'Mitr';font-weight:500;font-size:15px;color:#fff}
-  .sheet-grip small{display:block;font-weight:200;font-size:11px;
-    color:rgba(255,255,255,.5);margin-top:1px}
-  .sheet-grip .chev{font-size:20px;line-height:1;color:rgba(255,255,255,.45);
-    margin-top:6px;transition:transform .34s var(--ease)}
+  .sheet-grip .bar{position:absolute;left:50%;top:6px;transform:translateX(-50%);
+    width:36px;height:4px;border-radius:99px;background:rgba(255,255,255,.32)}
+  .sheet-grip .lbl{flex:1;min-width:0;margin-top:4px}
+  .sheet-grip b{display:block;font-family:'Mitr';font-weight:500;font-size:14px;color:#fff;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sheet-grip small{display:block;font-weight:200;font-size:10px;
+    color:rgba(255,255,255,.45);margin-top:0}
+  .sheet-grip .chev{font-size:17px;line-height:1;color:rgba(255,255,255,.45);
+    margin-top:4px;transition:transform .34s var(--ease)}
   .map-rail.half .sheet-grip .chev,
   .map-rail.open .sheet-grip .chev{transform:rotate(180deg)}
+  /* เปิดแล้วซ่อนคำใบ้ จะได้เหลือที่ให้เนื้อหา */
+  .map-rail.half .sheet-grip small,
+  .map-rail.open .sheet-grip small{display:none}
 
-  .rail-scroll{padding:0 14px 6px;-webkit-overflow-scrolling:touch}
-  .rail-tabs{margin:0 14px 10px;padding:4px}
-  .rail-tabs button{padding:11px 2px;font-size:13px}
-  .eb-badge{margin:0 14px 8px;font-size:10.5px}
-  .rail-h{font-size:10px;margin:18px 0 10px}
+  .rail-scroll{padding:0 12px 4px;-webkit-overflow-scrolling:touch}
+  .rail-tabs{margin:0 12px 8px;padding:3px}
+  .rail-tabs button{padding:8px 2px;font-size:12.5px}
+  .eb-badge{margin:0 12px 6px;font-size:9.5px;padding-left:13px}
+  .eb-badge::before{top:4px}
+  .rail-h{font-size:9px;margin:13px 0 7px}
 
-  /* รายชื่อนก — 3 คอลัมน์ อ่านชื่อได้ครบ กดง่าย */
-  .sp-grid{grid-template-columns:repeat(3,1fr);gap:12px}
-  .sp .nm{font-size:10.5px;-webkit-line-clamp:2}
-  .searchbox input{padding:12px 12px 12px 32px;font-size:14px}
-  .zsel button{padding:12px 0;font-size:14px}
-  .tog{padding:10px 14px;font-size:13px}
-  .seg button{padding:12px 2px;font-size:12.5px}
-  .rng{margin-bottom:14px}
+  /* รายชื่อนก — กะทัดรัด เลื่อนเร็ว เห็นเยอะ */
+  .sp-grid{grid-template-columns:repeat(4,1fr);gap:8px}
+  .sp .nm{font-size:9px;margin-top:4px;-webkit-line-clamp:2}
+  .sp img{border-width:1.5px}
+  .searchbox{margin-top:8px}
+  .searchbox input{padding:9px 10px 9px 30px;font-size:12.5px}
+  .zsel{gap:5px}
+  .zsel button{padding:9px 0;font-size:13px}
+  .zsel button small{font-size:7.5px}
+  .zname{font-size:10.5px;margin-top:6px}
+  .tog{padding:8px 12px;font-size:12px}
+  .seg button{padding:9px 2px;font-size:11.5px}
+  .rng{margin-bottom:12px}
   .rng input{height:22px;background:transparent}
   .rng input::-webkit-slider-runnable-track{height:4px;border-radius:9px;background:rgba(255,255,255,.22)}
   .rng input::-webkit-slider-thumb{margin-top:-7px;width:18px;height:18px}
@@ -673,19 +683,27 @@ body.embed .openfull{display:flex}
   .map-card .zone-card,.map-card .sp-card{
     overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;
     padding:0 16px calc(28px + var(--safe));min-height:0}
-  .map-card .sp-card.on{flex:1;display:flex;flex-direction:column}
+  .map-card .sp-card.on{flex:1;display:block}      /* block ไม่ใช่ flex — กันรูปยุบ */
   .map-card .zone-card:not(.off){flex:1}
-  /* เผื่อสไตล์เดสก์ท็อปตั้ง padding ไว้ ต้องล้างทิ้งบนมือถือ */
   .map-card .zone-card{padding-top:4px}
-  .card-x{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;flex:none;
+  .card-x{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;flex:none;
     border:1px solid rgba(255,255,255,.24);background:rgba(255,255,255,.08);
-    color:#fff;font-size:15px;cursor:pointer;margin-top:6px}
-  .sp-hero{width:calc(100% + 32px);margin:0 -16px 14px;aspect-ratio:16/10;
-    border-radius:14px}
-  .sp-th{font-size:23px}.sp-body{font-size:14px;line-height:1.85}
-  .sp-back{padding:14px;font-size:13px}
-  /* เปิดการ์ดอยู่ = ซ่อนปุ่มลอยที่ไปทับข้อความ */
-  body.card-on .addfab,body.card-on .map-bottom{opacity:0;pointer-events:none}
+    color:#fff;font-size:14px;cursor:pointer;margin-top:4px}
+  /* สำคัญ: ห้ามให้รูปยุบหาย — เคยพลาดมาแล้วเพราะโดน flex บีบจนสูงเป็นศูนย์ */
+  .sp-hero{flex:none;width:calc(100% + 32px);margin:0 -16px 12px;
+    aspect-ratio:16/10;min-height:150px;border-radius:14px}
+  .sp-th{font-size:21px}.sp-body{font-size:13.5px;line-height:1.8}
+  .sp-sec{margin:13px 0 6px}
+  .sp-back{padding:13px;font-size:12.5px}
+
+  /* ---------- ปุ่มเพิ่มการพบเห็น — เล็กลง หลบให้เป็น ---------- */
+  .addfab{right:12px;bottom:calc(var(--peek) + var(--safe) + 96px);
+    padding:9px 14px;font-size:11.5px;gap:6px;z-index:56;
+    transition:opacity .25s var(--ease),transform .25s var(--ease)}
+  .addfab svg{width:13px;height:13px}
+  /* เปิดแผ่นไหนอยู่ก็ตาม ให้หลบไปก่อน */
+  body.card-on .addfab,body.card-on .map-bottom,
+  body.rail-up .addfab,body.rail-up .map-bottom{opacity:0;pointer-events:none}
 
   /* ---------- ปุ่มลอยต่าง ๆ — ยกให้พ้นแผ่นเลื่อน ---------- */
   .map-bottom{position:fixed;left:0;right:0;
@@ -696,10 +714,6 @@ body.embed .openfull{display:flex}
   .map-hud{order:1}
   .hbtn{width:42px;height:42px;font-size:15px}
   .hbtn.wide{padding:0 14px;font-size:11.5px}
-  .addfab{right:12px;bottom:calc(var(--peek) + var(--safe) + 108px);
-    padding:13px 18px;font-size:13px;z-index:56}
-  .map-rail.half ~ .addfab,
-  .map-rail.open ~ .addfab{opacity:0;pointer-events:none}
 
   /* ---------- แผงตั้งค่า ---------- */
   .sheet-in{inset:0;border-radius:0}
@@ -2161,11 +2175,15 @@ if(mapEl){
       requestAnimationFrame(()=> $('#spFreq').style.width = pct+'%');
       $('#spZoneN').innerHTML = sp.z.map(zid=>
         `<span>${zid} <b>${Math.round(zoneShare(sp,zid))}</b></span>`).join('');
-      /* fly the map to the bird's main zone */
+      /* fly the map to the bird's main zone
+         บนมือถือมีแผ่นข้อมูลบังครึ่งล่าง จึงต้องเว้นระยะให้จุดสำคัญ
+         ลอยอยู่ครึ่งบนที่มองเห็น ไม่งั้นโซนจะไปหลบอยู่ใต้แผ่น          */
       if(GL.ready && GL.map){
         const z = ZONES.find(x=>x.id===sp.z[0]);
         const top = z.spots.slice().sort((a,b)=>b[2]-a[2])[0];
-        GL.map.easeTo({center:toLL(top[0],top[1]), zoom: sp.z.length>2 ? 14.5 : 15.4, duration:900});
+        GL.map.easeTo({center:toLL(top[0],top[1]),
+          zoom: sp.z.length>2 ? 14.5 : 15.4, duration:900,
+          padding: mapPad()});
       }
     }
     glMarkers();
@@ -2179,6 +2197,15 @@ if(mapEl){
   const isPhone = ()=> window.matchMedia('(max-width:900px)').matches;
   const rail = $('#mapRail');
   const grip = $('#railGrip');
+
+  /* ระยะที่แผ่นข้อมูลบังแผนที่อยู่ ใช้บอก MapLibre ให้จัดกึ่งกลางใหม่ */
+  function mapPad(){
+    if(!isPhone()) return {top:0,right:0,bottom:0,left:0};
+    const card = $('#mapCard');
+    const shown = card && card.classList.contains('show');
+    const h = shown ? Math.round(window.innerHeight * 0.46) : 90;
+    return {top:10, right:10, left:10, bottom:h};
+  }
 
   /* ==========================================================
      แผ่นเลื่อนแบบลากได้ — ใช้ร่วมกันทั้งแผงรายชื่อและการ์ดนก
@@ -2241,11 +2268,24 @@ if(mapEl){
 
   const railSheet = makeSheet(rail, grip, {
     start:'min',
-    onLevel: s=>{ const sub = $('#gripSub');
+    onLevel: s=>{
+      const sub = $('#gripSub');
       if(sub) sub.textContent = s === 'min'
-        ? 'แตะเพื่อเปิดรายชื่อ' : 'ลากลงเพื่อย่อ · แตะแผนที่เพื่อปิด'; }
+        ? 'แตะเพื่อเปิดรายชื่อ' : 'ลากลงเพื่อย่อ · แตะแผนที่เพื่อปิด';
+      document.body.classList.toggle('rail-up', s !== 'min');
+    }
   });
-  const cardSheet = makeSheet($('#mapCard'), $('#cardGrip'), {start:'half'});
+  /* เลื่อนการ์ดขึ้นลงแล้วขยับแผนที่ตาม จุดที่สนใจจะได้ไม่ไปหลบใต้แผ่น */
+  const cardSheet = makeSheet($('#mapCard'), $('#cardGrip'), {
+    start:'half',
+    onLevel: s=>{
+      if(!isPhone() || !GL.ready || !GL.map || !state.species) return;
+      const vh = window.innerHeight;
+      const bottom = s === 'open' ? Math.round(vh*0.62)
+                   : s === 'half' ? Math.round(vh*0.46) : 100;
+      GL.map.easeTo({padding:{top:10,left:10,right:10,bottom}, duration:380});
+    }
+  });
   let snap = 'min';                                   /* ใช้ตรวจสถานะแผงรายชื่อ */
   const setSnap = s=>{ snap = s; railSheet.set(s); };
   setSnap('min');
