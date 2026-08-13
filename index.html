@@ -655,18 +655,37 @@ body.embed .openfull{display:flex}
   .rng input::-webkit-slider-runnable-track{height:4px;border-radius:9px;background:rgba(255,255,255,.22)}
   .rng input::-webkit-slider-thumb{margin-top:-7px;width:18px;height:18px}
 
-  /* ---------- การ์ดนก = เต็มจอ ---------- */
-  .map-card{position:fixed;inset:var(--nav-h) 0 0 0;width:auto;max-height:none;
-    border-radius:0;padding:16px 16px calc(28px + var(--safe));z-index:70;
-    display:none;overflow-y:auto;-webkit-overflow-scrolling:touch}
-  .map-card.show{display:block}
-  .card-x{display:grid;place-items:center;position:fixed;right:12px;
-    top:calc(var(--nav-h) + 10px);z-index:80;width:40px;height:40px;border-radius:50%;
-    border:1px solid rgba(255,255,255,.28);background:rgba(6,13,8,.82);
-    color:#fff;font-size:16px;cursor:pointer;backdrop-filter:blur(10px)}
-  .sp-hero{width:calc(100% + 32px);margin:-16px -16px 14px;aspect-ratio:4/3}
+  /* ---------- การ์ดนก = แผ่นเลื่อนเหมือนกัน ไม่บังแผนที่ ---------- */
+  .map-card{
+    position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;
+    height:88vh; height:88dvh; max-height:none;
+    border-radius:22px 22px 0 0;z-index:70;padding:0;
+    background:rgba(6,13,8,.95);border:1px solid rgba(255,255,255,.12);border-bottom:0;
+    box-shadow:0 -14px 44px rgba(0,0,0,.6);
+    display:none;flex-direction:column;overflow:hidden;
+    transform:translateY(46dvh);transition:transform .34s var(--ease)}
+  .map-card.show{display:flex}
+  .map-card.dragging{transition:none}
+  .map-card.open{transform:translateY(0)}
+  .map-card.min{transform:translateY(calc(100% - var(--peek) - var(--safe)))}
+  /* เนื้อในเลื่อนแยกจากตัวแผ่น */
+  .map-card > *:not(.sheet-grip){flex:none}
+  .map-card .zone-card,.map-card .sp-card{
+    overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;
+    padding:0 16px calc(28px + var(--safe));min-height:0}
+  .map-card .sp-card.on{flex:1;display:flex;flex-direction:column}
+  .map-card .zone-card:not(.off){flex:1}
+  /* เผื่อสไตล์เดสก์ท็อปตั้ง padding ไว้ ต้องล้างทิ้งบนมือถือ */
+  .map-card .zone-card{padding-top:4px}
+  .card-x{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;flex:none;
+    border:1px solid rgba(255,255,255,.24);background:rgba(255,255,255,.08);
+    color:#fff;font-size:15px;cursor:pointer;margin-top:6px}
+  .sp-hero{width:calc(100% + 32px);margin:0 -16px 14px;aspect-ratio:16/10;
+    border-radius:14px}
   .sp-th{font-size:23px}.sp-body{font-size:14px;line-height:1.85}
   .sp-back{padding:14px;font-size:13px}
+  /* เปิดการ์ดอยู่ = ซ่อนปุ่มลอยที่ไปทับข้อความ */
+  body.card-on .addfab,body.card-on .map-bottom{opacity:0;pointer-events:none}
 
   /* ---------- ปุ่มลอยต่าง ๆ — ยกให้พ้นแผ่นเลื่อน ---------- */
   .map-bottom{position:fixed;left:0;right:0;
@@ -1272,8 +1291,15 @@ body.embed .openfull{display:flex}
 
     <!-- ---------- info card ---------- -->
     <div class="map-card" id="mapCard" style="--zc:#4CA555">
-      <!-- ปุ่มปิด — โผล่เฉพาะบนมือถือตอนการ์ดเต็มจอ -->
-      <button class="card-x" id="cardClose" aria-label="ปิด">✕</button>
+      <!-- หัวแผ่นเลื่อนของการ์ด — โผล่เฉพาะบนมือถือ -->
+      <div class="sheet-grip" id="cardGrip">
+        <span class="bar"></span>
+        <div class="lbl">
+          <b id="cardGripTitle">ข้อมูลนก</b>
+          <small>ลากขึ้นเพื่ออ่านต่อ · ลากลงเพื่อดูแผนที่</small>
+        </div>
+        <button class="card-x" id="cardClose" aria-label="ปิด">✕</button>
+      </div>
 
       <!-- zone view -->
       <div class="zone-card" id="zoneCard">
@@ -2154,74 +2180,97 @@ if(mapEl){
   const rail = $('#mapRail');
   const grip = $('#railGrip');
 
-  /* --- แผ่นเลื่อน 3 ระดับ: หุบ / ครึ่งจอ / เต็ม --- */
-  const SNAP = ['peek','half','open'];
-  let snap = 'peek';
-  function setSnap(s){
-    snap = s;
-    rail.classList.toggle('half', s === 'half');
-    rail.classList.toggle('open', s === 'open');
-    rail.style.transform = '';
-    const sub = $('#gripSub');
-    if(sub) sub.textContent = s === 'peek'
-      ? 'แตะเพื่อเปิดรายชื่อ' : 'ลากลงเพื่อย่อ · แตะแผนที่เพื่อปิด';
-  }
-  function gripTop(){                       /* ตำแหน่งบนสุดของแผ่นในแต่ละระดับ (px) */
-    const h = rail.offsetHeight, vh = window.innerHeight;
-    const peek = parseFloat(getComputedStyle(document.documentElement)
-                 .getPropertyValue('--peek')) || 76;
-    return {peek: vh - peek, half: vh - Math.round(vh*0.54), open: vh - h};
+  /* ==========================================================
+     แผ่นเลื่อนแบบลากได้ — ใช้ร่วมกันทั้งแผงรายชื่อและการ์ดนก
+     3 ระดับ: min (หุบ) · half (ครึ่งจอ) · open (เต็ม)
+     ========================================================== */
+  const LEVELS = ['min','half','open'];
+  function makeSheet(el, gripEl, opt){
+    opt = opt || {};
+    const S = { level: opt.start || 'min', el, grip: gripEl };
+    const peekPx = ()=> parseFloat(getComputedStyle(document.documentElement)
+                        .getPropertyValue('--peek')) || 76;
+    const tops = ()=>{
+      const vh = window.innerHeight;
+      return {min: vh - peekPx(), half: vh - Math.round(vh*0.54), open: vh - el.offsetHeight};
+    };
+    S.set = s=>{
+      S.level = s;
+      el.classList.toggle('min',  s === 'min');
+      el.classList.toggle('half', s === 'half');
+      el.classList.toggle('open', s === 'open');
+      el.style.transform = '';
+      if(opt.onLevel) opt.onLevel(s);
+    };
+    let d = null;
+    gripEl.addEventListener('pointerdown', e=>{
+      if(!isPhone()) return;
+      d = {y:e.clientY, t:Date.now(), moved:false, start: el.getBoundingClientRect().top};
+      try{ gripEl.setPointerCapture(e.pointerId); }catch(err){}
+      el.classList.add('dragging');
+    });
+    gripEl.addEventListener('pointermove', e=>{
+      if(!d) return;
+      const dy = e.clientY - d.y;
+      if(Math.abs(dy) > 4) d.moved = true;
+      const t = tops();
+      const y = Math.min(t.min, Math.max(t.open, d.start + dy));
+      el.style.transform = `translateY(${y - (window.innerHeight - el.offsetHeight)}px)`;
+    });
+    const finish = e=>{
+      if(!d) return;
+      el.classList.remove('dragging');
+      const dy = (e && e.clientY != null ? e.clientY : d.y) - d.y, dt = Date.now() - d.t;
+      const i = LEVELS.indexOf(S.level);
+      if(!d.moved){
+        S.set(S.level === 'min' ? 'half' : 'min');            /* แตะ = สลับ */
+      }else if(Math.abs(dy) > 30 && dt < 300){                /* สะบัดเร็ว */
+        S.set(LEVELS[Math.min(2, Math.max(0, i + (dy < 0 ? 1 : -1)))]);
+      }else{                                                  /* ลากช้า = ใกล้สุด */
+        const top = el.getBoundingClientRect().top, t = tops();
+        let best = 'min', best_d = 1e9;
+        for(const k of LEVELS){ const dd = Math.abs(t[k] - top); if(dd < best_d){ best_d = dd; best = k; } }
+        S.set(best);
+      }
+      d = null;
+    };
+    gripEl.addEventListener('pointerup', finish);
+    gripEl.addEventListener('pointercancel', ()=>{ if(d){ el.classList.remove('dragging'); S.set(S.level); d = null; } });
+    return S;
   }
 
-  let drag = null;
-  grip.addEventListener('pointerdown', e=>{
-    if(!isPhone()) return;
-    drag = {y:e.clientY, t:Date.now(), moved:false,
-            start: rail.getBoundingClientRect().top};
-    grip.setPointerCapture(e.pointerId);
-    rail.classList.add('dragging');
+  const railSheet = makeSheet(rail, grip, {
+    start:'min',
+    onLevel: s=>{ const sub = $('#gripSub');
+      if(sub) sub.textContent = s === 'min'
+        ? 'แตะเพื่อเปิดรายชื่อ' : 'ลากลงเพื่อย่อ · แตะแผนที่เพื่อปิด'; }
   });
-  grip.addEventListener('pointermove', e=>{
-    if(!drag) return;
-    const dy = e.clientY - drag.y;
-    if(Math.abs(dy) > 4) drag.moved = true;
-    const tops = gripTop();
-    const y = Math.min(tops.peek, Math.max(tops.open, drag.start + dy));
-    rail.style.transform = `translateY(${y - (window.innerHeight - rail.offsetHeight)}px)`;
-  });
-  grip.addEventListener('pointerup', e=>{
-    if(!drag) return;
-    rail.classList.remove('dragging');
-    const dy = e.clientY - drag.y, dt = Date.now() - drag.t;
-    const fast = Math.abs(dy) > 30 && dt < 300;      /* สะบัดเร็ว = ข้ามระดับ */
-    let i = SNAP.indexOf(snap);
-    if(!drag.moved){                                  /* แตะเฉย ๆ = สลับ */
-      setSnap(snap === 'peek' ? 'half' : 'peek');
-    }else if(fast){
-      setSnap(SNAP[Math.min(2, Math.max(0, i + (dy < 0 ? 1 : -1)))]);
-    }else{                                            /* ลากช้า = หาระดับใกล้สุด */
-      const top = rail.getBoundingClientRect().top, tops = gripTop();
-      let best = 'peek', d = 1e9;
-      for(const k of SNAP){ const dd = Math.abs(tops[k] - top); if(dd < d){ d = dd; best = k; } }
-      setSnap(best);
-    }
-    drag = null;
-  });
-  grip.addEventListener('pointercancel', ()=>{
-    if(drag){ rail.classList.remove('dragging'); setSnap(snap); drag = null; }
-  });
+  const cardSheet = makeSheet($('#mapCard'), $('#cardGrip'), {start:'half'});
+  let snap = 'min';                                   /* ใช้ตรวจสถานะแผงรายชื่อ */
+  const setSnap = s=>{ snap = s; railSheet.set(s); };
+  setSnap('min');
 
-  /* แตะแผนที่ = ย่อแผ่นลง จะได้ดูแผนที่เต็ม ๆ */
+  /* แตะแผนที่ = ย่อทุกแผ่นลง จะได้เห็นแผนที่เต็ม ๆ */
   $('#mapViewport').addEventListener('pointerdown', ()=>{
-    if(isPhone() && snap !== 'peek') setSnap('peek');
+    if(!isPhone()) return;
+    if(snap !== 'min') setSnap('min');
+    if(state.species && cardSheet.level !== 'min') cardSheet.set('min');
   }, true);
 
   function syncPhoneCard(){
     if(!isPhone()) return;
-    $('#mapCard').classList.toggle('show', !!state.species);
-    if(state.species) setSnap('peek');
+    const on = !!state.species;
+    $('#mapCard').classList.toggle('show', on);
+    document.body.classList.toggle('card-on', on);
+    if(on){
+      setSnap('min');
+      cardSheet.set('half');                          /* เปิดมาครึ่งจอ เห็นแผนที่ครึ่งบน */
+      const sp = SPECIES.find(s=>s.id===state.species);
+      const t = $('#cardGripTitle');
+      if(t && sp) t.textContent = sp.th;
+    }
   }
-  $('#cardClose').addEventListener('click', ()=> selectSpecies(null));
+  $('#cardClose').addEventListener('click', e=>{ e.stopPropagation(); selectSpecies(null); });
 
   /* หัวแผ่นบอกจำนวนชนิดที่กำลังแสดง */
   window.__gripCount = n=>{
