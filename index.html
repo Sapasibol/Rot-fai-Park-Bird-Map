@@ -689,9 +689,11 @@ body.embed .openfull{display:flex}
   .card-x{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;flex:none;
     border:1px solid rgba(255,255,255,.24);background:rgba(255,255,255,.08);
     color:#fff;font-size:14px;cursor:pointer;margin-top:4px}
-  /* สำคัญ: ห้ามให้รูปยุบหาย — เคยพลาดมาแล้วเพราะโดน flex บีบจนสูงเป็นศูนย์ */
-  .sp-hero{flex:none;width:calc(100% + 32px);margin:0 -16px 12px;
-    aspect-ratio:16/10;min-height:150px;border-radius:14px}
+  /* สำคัญ: กำหนดความสูงเป็นตัวเลขตรง ๆ ไม่พึ่ง aspect-ratio
+     เพราะในกล่องแบบยืดหยุ่นมันถูกบีบจนสูงเป็นศูนย์ได้ */
+  .sp-hero{flex:none;display:block;width:calc(100% + 32px);margin:0 -16px 12px;
+    height:min(52vw,230px);min-height:150px;aspect-ratio:auto;border-radius:14px}
+  .sp-hero img{width:100%;height:100%;object-fit:cover}
   .sp-th{font-size:21px}.sp-body{font-size:13.5px;line-height:1.8}
   .sp-sec{margin:13px 0 6px}
   .sp-back{padding:13px;font-size:12.5px}
@@ -2308,6 +2310,12 @@ if(mapEl){
       const sp = SPECIES.find(s=>s.id===state.species);
       const t = $('#cardGripTitle');
       if(t && sp) t.textContent = sp.th;
+      /* ต้องรีเซ็ตการเลื่อน ไม่งั้นจะค้างอยู่ตำแหน่งของนกตัวก่อน
+         ทำให้เปิดมาแล้วเห็นกลางเนื้อหา ไม่เห็นรูปกับชื่อ */
+      requestAnimationFrame(()=>{
+        const p = $('#spCard'); if(p) p.scrollTop = 0;
+        $('#mapCard').scrollTop = 0;
+      });
     }
   }
   $('#cardClose').addEventListener('click', e=>{ e.stopPropagation(); selectSpecies(null); });
@@ -2629,6 +2637,29 @@ if(mapEl){
       if(state.zone!=='ALL') f.push(['==',['get','z'],state.zone]);
     }
     m.setFilter('bird-heat', f);
+
+    /* ---------- ชดเชยความเข้มเมื่อกรองเหลือชนิดเดียว ----------
+       heatmap วาดสีจาก "ความหนาแน่นของจุดต่อพื้นที่" ไม่ใช่ค่าของจุด
+       ดูทุกชนิดพร้อมกัน = จุดหลายพันจุดทับกัน สีเลยแดงจัด
+       พอกรองเหลือชนิดเดียว จุดหายไปกว่า 90% ความหนาแน่นตกฮวบ
+       สีเลยจางจนดูเหมือน heatmap หายไป ทั้งที่ข้อมูลยังอยู่ครบ
+       จึงต้องขยายความเข้มและรัศมีตามสัดส่วนที่จุดหายไป
+       เพื่อให้สีของนกชนิดเดียวเทียบเคียงกับตอนดูรวมได้           */
+    const nAll = POINTS.length || 1;
+    const nSel = state.species
+      ? POINTS.filter(p=> p.sp === state.species).length
+      : nAll;
+    const k = state.species
+      ? Math.max(1, Math.min(7, Math.sqrt(nAll / Math.max(1, nSel))))
+      : 1;
+    m.setPaintProperty('bird-heat','heatmap-intensity',
+      ['interpolate',['linear'],['zoom'],
+        13, .30*k, 15, .55*k, 17.5, 1.0*k]);
+    /* ชนิดเดียวจุดห่างกว่า ต้องขยายรัศมีให้หยดสีเชื่อมกันเป็นผืน */
+    const rk = state.species ? 1.35 : 1;
+    m.setPaintProperty('bird-heat','heatmap-radius',
+      ['interpolate',['linear'],['zoom'],
+        13, state.radius*.30*rk, 15, state.radius*.62*rk, 17.5, state.radius*1.7*rk]);
 
     /* จุดที่พบ: โชว์เฉพาะตอนเลือกนกแล้ว */
     ['spot-halo','spot-dot','spot-lab'].forEach(id=>{
